@@ -13,7 +13,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../src/ModularShop.Api/wwwroot',
+    outDir: '../src/ModularShop.Server/wwwroot',
     emptyOutDir: true
   }
 })

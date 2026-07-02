@@ -1,0 +1,5 @@
+# pnpm 11 reads build-script approvals from this file. esbuild (used by Vite) ships a prebuilt
+# binary, so we explicitly allow its install script — this clears pnpm's "ignored build scripts"
+# prompt so `pnpm install` / `pnpm build` / `pnpm dev` run non-interactively.
+allowBuilds:
+  esbuild: true
