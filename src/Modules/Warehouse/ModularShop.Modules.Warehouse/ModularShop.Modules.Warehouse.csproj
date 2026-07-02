@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\ModularShop.SharedKernel\ModularShop.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\ModularShop.SharedKernel.Infrastructure\ModularShop.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\ModularShop.SharedKernel.Web\ModularShop.SharedKernel.Web.csproj" />
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Contracts\ModularShop.Modules.Warehouse.Contracts.csproj" />
+    <ProjectReference Include="..\..\Sales\ModularShop.Modules.Sales.Contracts\ModularShop.Modules.Sales.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

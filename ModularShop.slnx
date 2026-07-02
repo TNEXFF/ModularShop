@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ModularShop.Api/ModularShop.Api.csproj" />
+    <Project Path="src/ModularShop.SharedKernel.Infrastructure/ModularShop.SharedKernel.Infrastructure.csproj" />
+    <Project Path="src/ModularShop.SharedKernel.Web/ModularShop.SharedKernel.Web.csproj" />
+    <Project Path="src/ModularShop.SharedKernel/ModularShop.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Sales/">
+    <Project Path="src/Modules/Sales/ModularShop.Modules.Sales.Contracts/ModularShop.Modules.Sales.Contracts.csproj" />
+    <Project Path="src/Modules/Sales/ModularShop.Modules.Sales/ModularShop.Modules.Sales.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Shipping/">
+    <Project Path="src/Modules/Shipping/ModularShop.Modules.Shipping/ModularShop.Modules.Shipping.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Warehouse/">
+    <Project Path="src/Modules/Warehouse/ModularShop.Modules.Warehouse.Contracts/ModularShop.Modules.Warehouse.Contracts.csproj" />
+    <Project Path="src/Modules/Warehouse/ModularShop.Modules.Warehouse/ModularShop.Modules.Warehouse.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,21 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Visual Studio / Rider IDE caches
+.vs/
+.idea/
+
+# Obsidian vault config (docs are opened as an Obsidian vault locally)
+.obsidian/
+
+# Frontend
+node_modules/
+
+# Generated SPA bundle (rebuild with: pnpm --dir client build)
+src/ModularShop.Server/wwwroot/
+src/ModularShop.Api/wwwroot/
+
+# Local run logs
+*.log
