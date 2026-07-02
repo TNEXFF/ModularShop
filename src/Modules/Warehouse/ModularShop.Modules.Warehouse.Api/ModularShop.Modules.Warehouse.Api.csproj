@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Warehouse.Api</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Presentation layer: controllers only. It references the Application layer (use cases) and the
+       kernel Web layer (ApiControllerBase + ApiResponse). It does NOT reference Infrastructure or
+       Domain — controllers invoke use cases and know nothing about persistence. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Application\ModularShop.Modules.Warehouse.Application.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
+  </ItemGroup>
+
+</Project>

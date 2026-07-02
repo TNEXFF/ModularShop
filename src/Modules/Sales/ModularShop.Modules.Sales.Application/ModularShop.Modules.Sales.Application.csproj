@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Sales.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Modules.Sales.Domain\ModularShop.Modules.Sales.Domain.csproj" />
+    <ProjectReference Include="..\ModularShop.Modules.Sales.Contracts\ModularShop.Modules.Sales.Contracts.csproj" />
+    <!-- Sales calls Warehouse's public synchronous API when placing an order. -->
+    <ProjectReference Include="..\..\Warehouse\ModularShop.Modules.Warehouse.Contracts\ModularShop.Modules.Warehouse.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" Version="10.1.0" />
+    <PackageReference Include="Ardalis.Specification" Version="9.3.1" />
+    <PackageReference Include="MediatR" Version="14.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

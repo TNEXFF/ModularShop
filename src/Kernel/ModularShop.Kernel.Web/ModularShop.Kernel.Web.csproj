@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Kernel.Web</RootNamespace>
+  </PropertyGroup>
+
+  <!-- This kernel layer holds ASP.NET Core cross-cutting code (the ApiResponse envelope, the base
+       API controller that maps Ardalis Results to HTTP, exception middleware, current-user). A
+       FrameworkReference lets a class library use ASP.NET Core types, and it flows transitively so
+       each module's Api project can build controllers without referencing ASP.NET Core directly. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" Version="10.1.0" />
+  </ItemGroup>
+
+</Project>

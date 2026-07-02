@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Shipping.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Modules.Shipping.Application\ModularShop.Modules.Shipping.Application.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ModularShop.Server</RootNamespace>
+  </PropertyGroup>
+
+  <!-- EF Core design-time tooling (used by `dotnet ef` with this as the startup project).
+       PrivateAssets=all keeps it out of the runtime output. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="MediatR" Version="14.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <!-- The host references the kernel and every module's Infrastructure (for IModule + the MediatR
+       handler assemblies) and Api (for the controllers, registered as ApplicationParts). It is the
+       ONLY project that knows the full set of modules; modules never reference the host or each
+       other's implementations. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
+
+    <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Api\ModularShop.Modules.Sales.Api.csproj" />
+
+    <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Api\ModularShop.Modules.Warehouse.Api.csproj" />
+
+    <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Api\ModularShop.Modules.Shipping.Api.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Warehouse.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Application\ModularShop.Modules.Warehouse.Application.csproj" />
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Domain\ModularShop.Modules.Warehouse.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <!-- Warehouse reacts to the Sales OrderPlaced event, so it references the Sales public contract. -->
+    <ProjectReference Include="..\..\Sales\ModularShop.Modules.Sales.Contracts\ModularShop.Modules.Sales.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="14.1.0" />
+  </ItemGroup>
+
+</Project>

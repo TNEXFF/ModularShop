@@ -1,13 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\ModularShop.SharedKernel\ModularShop.SharedKernel.csproj" />
-  </ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Sales.Contracts</RootNamespace>
   </PropertyGroup>
+
+  <!-- Integration events are MediatR notifications. Contracts reference the lightweight
+       MediatR.Contracts package (interfaces only), not the full MediatR runtime. -->
+  <ItemGroup>
+    <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+  </ItemGroup>
 
 </Project>
