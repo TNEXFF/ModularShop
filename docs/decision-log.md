@@ -257,11 +257,82 @@ Each decision lists the **choice**, the **reasoning**, and the **alternatives co
 ---
 
 ## 4. Naming & layout conventions
-- Solution/root namespace: **`ModularShop`**. Host: `ModularShop.Api`. Shared: `ModularShop.SharedKernel[.Infrastructure|.Web]`.
-  Modules: `ModularShop.Modules.<Name>` and `ModularShop.Modules.<Name>.Contracts`.
+- Solution/root namespace: **`ModularShop`**. Host: `ModularShop.Server` (was `ModularShop.Api`).
+  Kernel: `ModularShop.Kernel.{Domain,Application,Infrastructure,Web}` (was `ModularShop.SharedKernel[.*]`).
+  Modules: `ModularShop.Modules.<Name>.{Domain,Application,Infrastructure,Api}` and `…​.<Name>.Contracts`.
 - Schemas: lower‑case module name (`sales`, `warehouse`, `shipping`).
 - One database: `ModularShopDemo`.
 - Everything an example needs lives under `/mnt/d/TNEX/ModularShop` so the teaching repo is
   self‑contained.
 
-_Last updated: 2026‑07‑01._
+---
+
+## 5. Revision — layered projects, Ardalis, MediatR, real controllers (2026‑07‑02)
+
+After the first version was reviewed, six changes were requested to move the example closer to a
+production‑grade Clean‑Architecture MM. Each is recorded below; several **supersede** earlier decisions,
+which is normal for an ADR log — the original reasoning is left intact above so the evolution is visible.
+
+### D16 — One project **per layer** per module (supersedes D3’s "one project per module")
+- **Choice:** every module is now four projects — `*.Domain`, `*.Application`, `*.Infrastructure`,
+  `*.Api` — plus its `*.Contracts`. The Kernel is layered the same way. Inside each `*.Infrastructure`,
+  the DbContext, EF configurations and migrations live under `Persistence/`.
+- **Reasoning:** makes the Clean‑Architecture **dependency rule a compile‑time fact** (Domain can’t see
+  EF; Api can’t see Infrastructure). This is the shape Grzybek’s reference sample uses and the shape the
+  brief now asks for. Cross‑module encapsulation shifts from "`internal` in a single assembly" to "the
+  project‑reference graph" — an equally strong compile‑time guarantee (a module can’t name another
+  module’s `Product` because it doesn’t reference that assembly). Domain entities therefore become
+  `public`; genuinely private types (DbContext, configs, seeds, handlers) stay `internal` to their layer.
+- **Cost accepted:** more projects (19 total: 4 Kernel + host + 5 Sales + 5 Warehouse + 4 Shipping).
+  Justified by the teaching goal (show the layering) and the intent to mirror Platform’s structure.
+
+### D17 — `Ardalis.Result` for results (supersedes D11’s hand‑rolled `Result`)
+- **Choice:** every use case returns an `Ardalis.Result<T>` (`Success` / `NotFound` / `Invalid(...)`).
+  The kernel base controller (`ApiControllerBase`) maps `Result.Status` to the HTTP status code and the
+  `ApiResponse<T>` envelope, which is **kept** (the brief requires controllers to return `ApiResponse`).
+- **Reasoning:** the brief now asks to use the Ardalis packages instead of hand‑rolled equivalents. This
+  is exactly what Platform does (`Ardalis.Result` + `ApiResponse`), so the mapping is now 1:1.
+
+### D18 — `Ardalis.Specification` for the repository (supersedes D10’s thin hand‑rolled repository)
+- **Choice:** the generic `EfRepository<T,TContext>` now derives from Ardalis
+  `RepositoryBase<T>`; queries are `Specification<T>` objects defined in each module’s Application layer.
+- **Reasoning:** once a module is split into layers, the Application layer must not reference the
+  DbContext. Specifications are the clean, idiomatic Ardalis way to express queries in Application and run
+  them in Infrastructure — avoiding a bespoke repository method per screen. (Ardalis.Specification.EFCore
+  9.3.1 targets net9 but runs fine on net10 / EF Core 10 — verified by build + live run.)
+
+### D19 — **MediatR** as the integration‑event bus (supersedes D8’s hand‑rolled bus)
+- **Choice:** `OrderPlaced` is a MediatR `INotification`; handlers are `INotificationHandler<OrderPlaced>`
+  in each subscribing module’s Infrastructure; the `PlaceOrder` use case publishes via `IPublisher`. The
+  host registers MediatR once, scanning each module’s Infrastructure assembly for handlers.
+- **Reasoning:** the brief now permits MediatR (a Community licence is available) and asks to prefer it
+  over the hand‑rolled bus. MediatR 14’s Community tier is free for education/small orgs and only *logs*
+  a notice without a key (never throws), so build‑and‑run is unaffected; `MediatR:LicenseKey` in config is
+  the place to add a key. MediatR is used **only** for integration events — **not** as a command/query
+  bus (still forbidden by the brief). Handlers stay thin (event → use case) so domain logic remains in
+  Application.
+
+### D20 — Real **controllers** invoking **use cases** (supersedes D9’s minimal APIs; refines D15)
+- **Choice:** minimal APIs are replaced by MVC controllers in each module’s `*.Api` project. A controller
+  injects **use‑case** classes (`PlaceOrder`, `ListProducts`, `ShipShipment`, …) — one class per
+  operation — never an application "service". Controllers hold no logic: invoke a use case, return its
+  `Result` as an `ApiResponse`. The host discovers controllers by registering each Api assembly as an MVC
+  **ApplicationPart**.
+- **Reasoning:** the brief asks for real controllers that invoke use cases (not services). Splitting the
+  former `OrderService`/`ProductService`/… into single‑responsibility use cases makes each operation a
+  first‑class, independently testable unit and reads clearly against the Clean‑Architecture layering.
+
+### D21 — **Swagger** (Swashbuckle) enabled
+- **Choice:** `Swashbuckle.AspNetCore` provides Swagger/OpenAPI UI at `/swagger`, enabled in every
+  environment for this demo.
+- **Reasoning:** the brief asks to configure Swagger; Swashbuckle is the familiar choice for a .NET team
+  and, with `[ApiController]` controllers, needs no per‑endpoint annotation to list all 10 routes.
+
+### D22 — Rename **Kernel** and **Server**; bump Node/pnpm
+- **Choice:** `SharedKernel*` → `Kernel.*` (drop "Shared"); `ModularShop.Api` → `ModularShop.Server`.
+  Frontend toolchain updated to **Node 24 / pnpm 11** (from Node 20 / pnpm 9); the SPA build output moved
+  to `src/ModularShop.Server/wwwroot`. pnpm 11 gates package build scripts, so `client/pnpm-workspace.yaml`
+  allows `esbuild` to run non‑interactively.
+- **Reasoning:** naming per the brief; version bumps to match the updated local toolchain.
+
+_Last updated: 2026‑07‑02._
