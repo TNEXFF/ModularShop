@@ -4,8 +4,10 @@ namespace ModularShop.Modules.Shipping.Domain;
 
 /// <summary>
 /// A shipment, owned by the Shipping module. A shipment is created from an <c>OrderPlaced</c>
-/// integration event — Shipping only ever learns about an order through that event, never by
-/// reading the Sales tables. It keeps just the order info it needs (a copy), plus its own state.
+/// integration event — Shipping only ever learns about an order through that event, never by reading the
+/// Sales tables. It keeps just the order info it needs (a copy), plus its own state. <see cref="CustomerId"/>
+/// is a foreign key to the <b>shared kernel</b> <see cref="Customer"/> — the same customer the Sales
+/// order referenced — so deliveries and orders point at one consistent customer record.
 /// </summary>
 public sealed class Shipment : Entity
 {
@@ -14,6 +16,7 @@ public sealed class Shipment : Entity
     public string ShipmentNumber { get; private set; } = default!;
     public Guid OrderId { get; private set; }
     public string OrderNumber { get; private set; } = default!;
+    public Guid CustomerId { get; private set; }
     public string CustomerName { get; private set; } = default!;
     public ShipmentStatus Status { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
@@ -27,12 +30,14 @@ public sealed class Shipment : Entity
 
     private Shipment() { } // EF
 
-    public Shipment(Guid id, string shipmentNumber, Guid orderId, string orderNumber, string customerName, DateTime createdOnUtc)
+    public Shipment(Guid id, string shipmentNumber, Guid orderId, string orderNumber, Guid customerId,
+        string customerName, DateTime createdOnUtc)
         : base(id)
     {
         ShipmentNumber = shipmentNumber;
         OrderId = orderId;
         OrderNumber = orderNumber;
+        CustomerId = customerId;
         CustomerName = customerName;
         CreatedOnUtc = createdOnUtc;
         Status = ShipmentStatus.Pending;

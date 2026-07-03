@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Modules.Support.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Modules.Support.Application\ModularShop.Modules.Support.Application.csproj" />
+    <ProjectReference Include="..\ModularShop.Modules.Support.Domain\ModularShop.Modules.Support.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

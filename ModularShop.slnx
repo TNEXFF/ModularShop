@@ -29,4 +29,10 @@
     <Project Path="src/Modules/Shipping/ModularShop.Modules.Shipping.Infrastructure/ModularShop.Modules.Shipping.Infrastructure.csproj" />
     <Project Path="src/Modules/Shipping/ModularShop.Modules.Shipping.Api/ModularShop.Modules.Shipping.Api.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Support/">
+    <Project Path="src/Modules/Support/ModularShop.Modules.Support.Domain/ModularShop.Modules.Support.Domain.csproj" />
+    <Project Path="src/Modules/Support/ModularShop.Modules.Support.Application/ModularShop.Modules.Support.Application.csproj" />
+    <Project Path="src/Modules/Support/ModularShop.Modules.Support.Infrastructure/ModularShop.Modules.Support.Infrastructure.csproj" />
+    <Project Path="src/Modules/Support/ModularShop.Modules.Support.Api/ModularShop.Modules.Support.Api.csproj" />
+  </Folder>
 </Solution>

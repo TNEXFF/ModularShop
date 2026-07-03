@@ -6,10 +6,10 @@ namespace ModularShop.Modules.Shipping.Infrastructure.IntegrationEventHandlers;
 
 /// <summary>
 /// Reacts to the Sales module's <see cref="OrderPlaced"/> integration event (a MediatR
-/// <c>INotification</c>) by opening a pending shipment. This is the other half of the asynchronous
-/// flow (Warehouse decrements stock; Shipping creates the shipment) — both handlers subscribe to the
-/// same event and run independently. The handler is a thin adapter over the
-/// <see cref="CreateShipment"/> use case; MediatR discovers it when the host scans this assembly.
+/// <c>INotification</c>) by opening a pending shipment. This is the other half of the asynchronous flow
+/// (Warehouse decrements stock; Shipping creates the shipment) — both handlers subscribe to the same
+/// event and run independently. The handler is a thin adapter over the <see cref="CreateShipment"/> use
+/// case; MediatR discovers it when the host scans this assembly.
 /// </summary>
 internal sealed class CreateShipmentOnOrderPlaced : INotificationHandler<OrderPlaced>
 {
@@ -22,6 +22,7 @@ internal sealed class CreateShipmentOnOrderPlaced : INotificationHandler<OrderPl
         var request = new NewShipment(
             notification.OrderId,
             notification.OrderNumber,
+            notification.CustomerId,
             notification.CustomerName,
             notification.Lines.Select(l => new NewShipmentItem(l.ProductName, l.Quantity)).ToList());
         return _createShipment.ExecuteAsync(request, cancellationToken);

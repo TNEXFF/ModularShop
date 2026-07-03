@@ -1,12 +1,14 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using ModularShop.Kernel.Application;
 
 namespace ModularShop.Kernel.Web;
 
 /// <summary>
-/// Lightweight <see cref="ICurrentUser"/> that reads an <c>X-User-Id</c> request header and falls
-/// back to a system user. It demonstrates WHERE identity belongs in an MM (the kernel) without the
-/// ceremony of a full auth stack — swap in JWT/OIDC behind the same interface later.
+/// <see cref="ICurrentUser"/> backed by the authenticated ASP.NET Core principal (cookie auth, set by
+/// the kernel's Identity sign-in). Use cases depend only on the kernel's <c>ICurrentUser</c> abstraction
+/// and never touch <c>HttpContext</c> or Identity directly. Falls back to <c>"system"</c> when there is
+/// no authenticated user (e.g. during startup seeding).
 /// </summary>
 internal sealed class CurrentUser : ICurrentUser
 {
@@ -14,10 +16,12 @@ internal sealed class CurrentUser : ICurrentUser
 
     public CurrentUser(IHttpContextAccessor accessor) => _accessor = accessor;
 
-    public string UserId =>
-        _accessor.HttpContext?.Request.Headers["X-User-Id"].FirstOrDefault() is { Length: > 0 } id
-            ? id
-            : "system";
+    private ClaimsPrincipal? Principal => _accessor.HttpContext?.User;
 
-    public string UserName => UserId;
+    public string UserId => Principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
+
+    public string UserName =>
+        Principal?.Identity?.Name
+        ?? Principal?.FindFirstValue(ClaimTypes.Email)
+        ?? "system";
 }

@@ -1,40 +1,41 @@
-using Ardalis.Specification;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Application;
 
 /// <summary>Input to <see cref="CreateShipment"/> — the order data needed to open a shipment.</summary>
-public sealed record NewShipment(Guid OrderId, string OrderNumber, string CustomerName, IReadOnlyList<NewShipmentItem> Items);
+public sealed record NewShipment(
+    Guid OrderId, string OrderNumber, Guid CustomerId, string CustomerName, IReadOnlyList<NewShipmentItem> Items);
 
 public sealed record NewShipmentItem(string ProductName, int Quantity);
 
 /// <summary>
 /// Use case: open a new (Pending) shipment for a placed order. Invoked by the Shipping
-/// integration-event handler when an order is placed. This is the other half of the asynchronous
-/// flow (Warehouse decrements stock; Shipping creates the shipment).
+/// integration-event handler when an order is placed — the other half of the asynchronous flow
+/// (Warehouse decrements stock; Shipping creates the shipment).
 /// </summary>
 public sealed class CreateShipment
 {
-    private readonly IRepositoryBase<Shipment> _shipments;
+    private readonly DbContext _db;
     private readonly ILogger<CreateShipment> _logger;
 
-    public CreateShipment(IRepositoryBase<Shipment> shipments, ILogger<CreateShipment> logger)
+    public CreateShipment(DbContext db, ILogger<CreateShipment> logger)
     {
-        _shipments = shipments;
+        _db = db;
         _logger = logger;
     }
 
     public async Task ExecuteAsync(NewShipment request, CancellationToken ct)
     {
-        var shipment = new Shipment(
-            Guid.NewGuid(), GenerateShipmentNumber(), request.OrderId, request.OrderNumber, request.CustomerName, DateTime.UtcNow);
+        var shipment = new Shipment(Guid.NewGuid(), GenerateShipmentNumber(), request.OrderId,
+            request.OrderNumber, request.CustomerId, request.CustomerName, DateTime.UtcNow);
 
         foreach (var item in request.Items)
             shipment.AddItem(item.ProductName, item.Quantity);
 
-        await _shipments.AddAsync(shipment, ct);
-        await _shipments.SaveChangesAsync(ct);
+        _db.Set<Shipment>().Add(shipment);
+        await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Shipping created shipment {ShipmentNumber} for order {OrderNumber}.",
             shipment.ShipmentNumber, request.OrderNumber);
     }

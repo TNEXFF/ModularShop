@@ -9,6 +9,7 @@ public sealed record OrderDto(
     string OrderNumber,
     Guid CustomerId,
     string CustomerName,
+    string CurrencyCode,
     string Status,
     DateTime PlacedOnUtc,
     string PlacedBy,

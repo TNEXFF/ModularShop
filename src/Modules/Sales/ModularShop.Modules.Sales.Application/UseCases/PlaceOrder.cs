@@ -1,8 +1,9 @@
 using Ardalis.Result;
-using Ardalis.Specification;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Kernel.Application;
+using ModularShop.Kernel.Domain;
 using ModularShop.Modules.Sales.Contracts;
 using ModularShop.Modules.Sales.Domain;
 using ModularShop.Modules.Warehouse.Contracts;
@@ -14,30 +15,29 @@ namespace ModularShop.Modules.Sales.Application;
 /// <list type="number">
 /// <item>a <b>synchronous</b> call into Warehouse's public API (<see cref="IWarehouseApi"/>) to read
 /// current price and stock, then</item>
-/// <item>an <b>asynchronous</b> integration event (<see cref="OrderPlaced"/>) published on MediatR
-/// once the order is committed — Warehouse decrements stock and Shipping creates a shipment, each in
-/// its own module, reacting independently.</item>
+/// <item>an <b>asynchronous</b> integration event (<see cref="OrderPlaced"/>) published on MediatR once
+/// the order is committed — Warehouse decrements stock and Shipping creates a shipment, each reacting
+/// independently.</item>
 /// </list>
+/// It reads the customer from the shared kernel <see cref="Customer"/> table, but reaches Warehouse
+/// only through its contract — never its tables.
 /// </summary>
 public sealed class PlaceOrder
 {
-    private readonly IReadRepositoryBase<Customer> _customers;
-    private readonly IRepositoryBase<Order> _orders;
-    private readonly IWarehouseApi _warehouse;       // Warehouse's PUBLIC interface (sync call)
-    private readonly IPublisher _publisher;          // MediatR — publishes integration events (async)
-    private readonly ICurrentUser _currentUser;      // cross-cutting identity from the kernel
+    private readonly DbContext _db;                 // the single host context (shared kernel + all modules)
+    private readonly IWarehouseApi _warehouse;      // Warehouse's PUBLIC interface (sync call)
+    private readonly IPublisher _publisher;         // MediatR — publishes integration events (async)
+    private readonly ICurrentUser _currentUser;     // cross-cutting identity from the kernel
     private readonly ILogger<PlaceOrder> _logger;
 
     public PlaceOrder(
-        IReadRepositoryBase<Customer> customers,
-        IRepositoryBase<Order> orders,
+        DbContext db,
         IWarehouseApi warehouse,
         IPublisher publisher,
         ICurrentUser currentUser,
         ILogger<PlaceOrder> logger)
     {
-        _customers = customers;
-        _orders = orders;
+        _db = db;
         _warehouse = warehouse;
         _publisher = publisher;
         _currentUser = currentUser;
@@ -49,13 +49,13 @@ public sealed class PlaceOrder
         if (request.Lines is null || request.Lines.Count == 0)
             return Result<OrderDto>.Invalid(new ValidationError("An order must contain at least one line."));
 
-        var customer = await _customers.FirstOrDefaultAsync(new CustomerByIdSpec(request.CustomerId), ct);
+        var customer = await _db.Set<Customer>().FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct);
         if (customer is null)
             return Result<OrderDto>.NotFound($"Customer {request.CustomerId} was not found.");
 
         // ── SYNCHRONOUS inter-module call ────────────────────────────────────────────────
         // Ask the Warehouse module, THROUGH ITS PUBLIC INTERFACE, for current price and stock.
-        // Sales never sees Warehouse's Product entity or DbContext — only the IWarehouseApi contract.
+        // Sales never sees Warehouse's Product entity or its tables — only the IWarehouseApi contract.
         var productIds = request.Lines.Select(l => l.ProductId).Distinct().ToList();
         var products = (await _warehouse.GetProductsAsync(productIds, ct)).ToDictionary(p => p.Id);
 
@@ -89,12 +89,12 @@ public sealed class PlaceOrder
         if (errors.Count > 0)
             return Result<OrderDto>.Invalid(errors);
 
-        await _orders.AddAsync(order, ct);
-        await _orders.SaveChangesAsync(ct);
+        _db.Set<Order>().Add(order);
+        await _db.SaveChangesAsync(ct);
 
         // ── ASYNCHRONOUS integration event ──────────────────────────────────────────────
-        // Announce the fact. Warehouse decrements stock and Shipping creates a shipment, each in its
-        // own module. Sales does not know or care who reacts.
+        // Announce the fact. Warehouse decrements stock and Shipping creates a shipment, each in its own
+        // module. Sales does not know or care who reacts.
         var placed = new OrderPlaced(order.Id, order.OrderNumber, customer.Id, customer.Name,
             order.Lines.Select(l => new OrderPlacedLine(l.ProductId, l.ProductName, l.Quantity)).ToList());
         await _publisher.Publish(placed, ct);

@@ -17,9 +17,11 @@
 
   <ItemGroup>
     <PackageReference Include="Ardalis.Result" Version="10.1.0" />
-    <PackageReference Include="Ardalis.Specification" Version="9.3.1" />
+    <!-- Use cases depend on DbContext directly (no repositories / specifications), a deliberate
+         relaxation of Clean Architecture: the Application layer references EF Core. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="MediatR" Version="14.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
   </ItemGroup>
 
 </Project>

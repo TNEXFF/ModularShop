@@ -17,6 +17,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+    <!-- The kernel's auth controller uses the ApplicationUser entity + Identity stores defined in the
+         kernel Infrastructure layer. A deliberate intra-kernel reference: identity is cross-cutting and
+         the kernel composes its own building blocks. -->
+    <ProjectReference Include="..\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

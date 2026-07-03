@@ -13,7 +13,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.9" />
-    <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
+    <!-- ASP.NET Core Identity with EF Core stores. The kernel owns authentication (users, roles), which
+         the single host context persists; this brings in UserManager/RoleManager + IdentityDbContext. -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.9" />
     <!-- IServiceCollection / IConfiguration (used by the IModule contract) come transitively from
          EF Core SqlServer 10.0.9, so no explicit Microsoft.Extensions.*.Abstractions refs are needed. -->
   </ItemGroup>

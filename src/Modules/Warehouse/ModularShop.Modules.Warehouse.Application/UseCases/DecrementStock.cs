@@ -1,4 +1,4 @@
-using Ardalis.Specification;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Modules.Warehouse.Domain;
 
@@ -10,23 +10,24 @@ public sealed record ProductStockChange(Guid ProductId, int Quantity);
 /// <summary>
 /// Use case: reduce on-hand stock for the given products. Invoked by the Warehouse integration-event
 /// handler when an order is placed. Warehouse OWNS the stock data, so the write happens here, against
-/// Warehouse's own repository/schema — never by another module reaching into these tables.
+/// Warehouse's own entities — never by another module reaching into these tables. The products are
+/// loaded <b>tracked</b> so the decrement persists on SaveChanges.
 /// </summary>
 public sealed class DecrementStock
 {
-    private readonly IRepositoryBase<Product> _products;
+    private readonly DbContext _db;
     private readonly ILogger<DecrementStock> _logger;
 
-    public DecrementStock(IRepositoryBase<Product> products, ILogger<DecrementStock> logger)
+    public DecrementStock(DbContext db, ILogger<DecrementStock> logger)
     {
-        _products = products;
+        _db = db;
         _logger = logger;
     }
 
     public async Task ExecuteAsync(IReadOnlyCollection<ProductStockChange> changes, CancellationToken ct)
     {
         var ids = changes.Select(c => c.ProductId).ToList();
-        var products = await _products.ListAsync(new ProductsByIdsForUpdateSpec(ids), ct);
+        var products = await _db.Set<Product>().Where(p => ids.Contains(p.Id)).ToListAsync(ct);
 
         foreach (var change in changes)
         {
@@ -34,7 +35,7 @@ public sealed class DecrementStock
             product?.DecreaseStock(change.Quantity);
         }
 
-        await _products.SaveChangesAsync(ct);
+        await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Warehouse decremented stock for {Count} product line(s).", changes.Count);
     }
 }

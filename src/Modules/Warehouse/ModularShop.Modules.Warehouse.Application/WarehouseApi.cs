@@ -1,4 +1,4 @@
-using Ardalis.Specification;
+using Microsoft.EntityFrameworkCore;
 using ModularShop.Modules.Warehouse.Contracts;
 using ModularShop.Modules.Warehouse.Domain;
 
@@ -11,14 +11,18 @@ namespace ModularShop.Modules.Warehouse.Application;
 /// </summary>
 public sealed class WarehouseApi : IWarehouseApi
 {
-    private readonly IReadRepositoryBase<Product> _products;
+    private readonly DbContext _db;
 
-    public WarehouseApi(IReadRepositoryBase<Product> products) => _products = products;
+    public WarehouseApi(DbContext db) => _db = db;
 
     public async Task<IReadOnlyList<ProductStock>> GetProductsAsync(
         IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default)
     {
-        var products = await _products.ListAsync(new ProductsByIdsSpec(productIds), cancellationToken);
+        var products = await _db.Set<Product>()
+            .Where(p => productIds.Contains(p.Id))
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
         return products
             .Select(p => new ProductStock(p.Id, p.Sku, p.Name, p.Price, p.StockQuantity))
             .ToList();

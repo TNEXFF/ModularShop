@@ -34,6 +34,9 @@
 
     <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Api\ModularShop.Modules.Shipping.Api.csproj" />
+
+    <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Infrastructure\ModularShop.Modules.Support.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Api\ModularShop.Modules.Support.Api.csproj" />
   </ItemGroup>
 
 </Project>

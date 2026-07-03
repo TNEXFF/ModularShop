@@ -7,6 +7,7 @@ public sealed record ShipmentDto(
     string ShipmentNumber,
     Guid OrderId,
     string OrderNumber,
+    Guid CustomerId,
     string CustomerName,
     string Status,
     DateTime CreatedOnUtc,
