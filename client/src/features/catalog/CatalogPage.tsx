@@ -32,7 +32,7 @@ export function CatalogPage() {
                 <tr key={p.id}>
                   <td className="mono">{p.sku}</td>
                   <td><strong>{p.name}</strong><div className="muted small">{p.description}</div></td>
-                  <td className="num">{money(p.price)}</td>
+                  <td className="num">{money(p.price, p.currencyCode)}</td>
                   <td className="num">
                     {p.stockQuantity <= 30
                       ? <span className="pill pill-low">{p.stockQuantity} low</span>

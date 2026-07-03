@@ -69,7 +69,7 @@ export function PlaceOrderPage() {
             {products.map(p => (
               <tr key={p.id}>
                 <td>{p.name}<div className="muted small mono">{p.sku}</div></td>
-                <td className="num">{money(p.price)}</td>
+                <td className="num">{money(p.price, p.currencyCode)}</td>
                 <td className="num">{p.stockQuantity}</td>
                 <td className="num">
                   <input type="number" min={0} max={p.stockQuantity} value={qty[p.id] ?? 0}
@@ -105,10 +105,10 @@ export function PlaceOrderPage() {
             <thead><tr><th>Product</th><th className="num">Unit</th><th className="num">Qty</th><th className="num">Line</th></tr></thead>
             <tbody>
               {placed.lines.map((l, i) => (
-                <tr key={i}><td>{l.productName}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{l.quantity}</td><td className="num">{money(l.lineTotal)}</td></tr>
+                <tr key={i}><td>{l.productName}</td><td className="num">{money(l.unitPrice, placed.currencyCode)}</td><td className="num">{l.quantity}</td><td className="num">{money(l.lineTotal, placed.currencyCode)}</td></tr>
               ))}
             </tbody>
-            <tfoot><tr><td colSpan={3} className="num"><strong>Total</strong></td><td className="num"><strong>{money(placed.total)}</strong></td></tr></tfoot>
+            <tfoot><tr><td colSpan={3} className="num"><strong>Total</strong></td><td className="num"><strong>{money(placed.total, placed.currencyCode)}</strong></td></tr></tfoot>
           </table>
         </div>
       )}

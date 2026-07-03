@@ -38,7 +38,7 @@ export function OrdersPage() {
                   <td>{date(o.placedOnUtc)}</td>
                   <td className="muted small">{o.placedBy}</td>
                   <td><span className={`status ${o.status.toLowerCase()}`}>{o.status}</span></td>
-                  <td className="num">{money(o.total)}</td>
+                  <td className="num">{money(o.total, o.currencyCode)}</td>
                 </tr>
                 {open.has(o.id) && (
                   <tr className="detail">
@@ -48,7 +48,7 @@ export function OrdersPage() {
                         <thead><tr><th>Product</th><th className="num">Unit</th><th className="num">Qty</th><th className="num">Line</th></tr></thead>
                         <tbody>
                           {o.lines.map((l, i) => (
-                            <tr key={i}><td>{l.productName}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{l.quantity}</td><td className="num">{money(l.lineTotal)}</td></tr>
+                            <tr key={i}><td>{l.productName}</td><td className="num">{money(l.unitPrice, o.currencyCode)}</td><td className="num">{l.quantity}</td><td className="num">{money(l.lineTotal, o.currencyCode)}</td></tr>
                           ))}
                         </tbody>
                       </table>
