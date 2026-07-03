@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { api, date, money, type Order } from '../../api'
 
 export function OrdersPage() {
@@ -24,14 +24,15 @@ export function OrdersPage() {
       <p className="muted">Orders live in the <code>sales</code> schema. Each line stores a <em>snapshot</em> of the product name &amp; price captured at order time — Sales does not read the Warehouse tables.</p>
 
       <div className="card">
+        {orders.length === 0 ? <p className="muted">No orders yet.</p> : (
         <table>
           <thead>
             <tr><th></th><th>Order #</th><th>Customer</th><th>Placed</th><th>By</th><th>Status</th><th className="num">Total</th></tr>
           </thead>
           <tbody>
             {orders.map(o => (
-              <>
-                <tr key={o.id} className="clickable" onClick={() => toggle(o.id)}>
+              <React.Fragment key={o.id}>
+                <tr className="clickable" onClick={() => toggle(o.id)}>
                   <td className="chev">{open.has(o.id) ? '▾' : '▸'}</td>
                   <td className="mono">{o.orderNumber}</td>
                   <td>{o.customerName}</td>
@@ -55,10 +56,11 @@ export function OrdersPage() {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </section>
   )

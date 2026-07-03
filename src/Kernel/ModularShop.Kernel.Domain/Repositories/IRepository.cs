@@ -13,15 +13,9 @@ public interface IRepository<T> : IReadRepository<T> where T : Entity
     /// <summary>Stages a new entity for insertion.</summary>
     Task AddAsync(T entity, CancellationToken cancellationToken = default);
 
-    /// <summary>Stages several new entities for insertion.</summary>
-    Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default);
-
     /// <summary>Stages an entity as modified. (Entities loaded tracked are already observed — this is for detached ones.)</summary>
     void Update(T entity);
 
     /// <summary>Stages an entity for deletion.</summary>
     void Remove(T entity);
-
-    /// <summary>Stages several entities for deletion.</summary>
-    void RemoveRange(IEnumerable<T> entities);
 }

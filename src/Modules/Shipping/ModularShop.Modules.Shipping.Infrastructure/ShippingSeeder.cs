@@ -79,6 +79,12 @@ internal static class ShippingSeed
         s6.AddItem("34\" Ultrawide Monitor", 1);
         list.Add(s6);
 
+        // The dispatch for the cancelled ORD-1007 — demonstrates ShipmentStatus.Cancelled.
+        var s7 = new Shipment(S(7), "SHP-1007", O(7), "ORD-1007", C(4), "David Smith", now.AddDays(-2));
+        s7.AddItem("Gaming Mouse", 1);
+        s7.ApplySeedState(ShipmentStatus.Cancelled, null, null, null, null);
+        list.Add(s7);
+
         return list;
     }
 }

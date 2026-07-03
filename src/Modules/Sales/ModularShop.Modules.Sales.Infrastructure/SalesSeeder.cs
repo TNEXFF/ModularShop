@@ -79,6 +79,13 @@ internal static class SalesSeed
         o6.AddLine(P(5), "34\" Ultrawide Monitor", 549.00m, 1);
         orders.Add(o6);
 
+        // A cancelled order — demonstrates the OrderStatus.Cancelled state (its stock was released, so the
+        // Warehouse seed does not net it out).
+        var o7 = new Order(O(7), "ORD-1007", C(4), "David Smith", "seed", now.AddDays(-2));
+        o7.AddLine(P(3), "Gaming Mouse", 54.00m, 1);
+        o7.MarkCancelled();
+        orders.Add(o7);
+
         return orders;
     }
 }

@@ -45,11 +45,18 @@ export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
 }
 
-async function unwrap<T>(res: Response): Promise<T> {
+// Global 401 hook. When any request comes back 401 the session cookie has expired (or is missing), so
+// the auth layer registers a handler here to drop the current user and fall back to the sign-in screen.
+// The initial me() probe opts out (skipAuthHandler) so a "not signed in yet" 401 at startup is quiet.
+let onUnauthorized: (() => void) | null = null
+export const setUnauthorizedHandler = (fn: (() => void) | null) => { onUnauthorized = fn }
+
+async function unwrap<T>(res: Response, skipAuthHandler = false): Promise<T> {
   let body: ApiResponse<T> | null = null
   try { body = (await res.json()) as ApiResponse<T> } catch { /* non-JSON / empty */ }
 
   if (!res.ok || !body || !body.isSuccess) {
+    if (res.status === 401 && !skipAuthHandler) onUnauthorized?.()
     const msg = body?.errors?.length ? body.errors.join(', ') : (body?.message ?? `Request failed (${res.status})`)
     throw new ApiError(msg, res.status)
   }
@@ -59,7 +66,7 @@ async function unwrap<T>(res: Response): Promise<T> {
 const jsonHeaders = { 'Content-Type': 'application/json' }
 const withCreds = (init?: RequestInit): RequestInit => ({ credentials: 'include', ...init })
 
-const get = <T>(url: string) => fetch(url, withCreds()).then(r => unwrap<T>(r))
+const get = <T>(url: string, skipAuthHandler = false) => fetch(url, withCreds()).then(r => unwrap<T>(r, skipAuthHandler))
 const post = <T>(url: string, body?: unknown) =>
   fetch(url, withCreds({
     method: 'POST',
@@ -69,7 +76,7 @@ const post = <T>(url: string, body?: unknown) =>
 
 export const api = {
   // ── Authentication (kernel) ──────────────────────────────────────────────
-  me: () => get<AuthUser>('/api/auth/me'),
+  me: () => get<AuthUser>('/api/auth/me', true),
   login: (email: string, password: string) => post<AuthUser>('/api/auth/login', { email, password }),
   register: (email: string, password: string, displayName: string) =>
     post<AuthUser>('/api/auth/register', { email, password, displayName }),

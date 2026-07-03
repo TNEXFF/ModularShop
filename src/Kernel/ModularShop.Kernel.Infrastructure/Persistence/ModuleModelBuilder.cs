@@ -65,12 +65,20 @@ public static class ModuleModelBuilder
     {
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (!typeof(Entity).IsAssignableFrom(entityType.ClrType))
+            // Only real, independently-keyed Entity aggregates/children — never an owned value object or a
+            // keyless projection that happens to derive from Entity, and only when Id is actually its key.
+            if (entityType.IsOwned() || !typeof(Entity).IsAssignableFrom(entityType.ClrType))
                 continue;
 
             var idProperty = entityType.FindProperty(nameof(Entity.Id));
-            if (idProperty is not null)
-                idProperty.ValueGenerated = ValueGenerated.Never;
+            if (idProperty is null)
+                continue;
+
+            var primaryKey = entityType.FindPrimaryKey();
+            if (primaryKey is null || !primaryKey.Properties.Contains(idProperty))
+                continue;
+
+            idProperty.ValueGenerated = ValueGenerated.Never;
         }
     }
 

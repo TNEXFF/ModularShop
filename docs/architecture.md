@@ -79,7 +79,8 @@ Each module is a small Clean‑Architecture stack of **four projects**, dependen
   beyond the Kernel’s `Entity` base.
 - **Application** — **use cases** (one class per operation: `PlaceOrder`, `ListProducts`,
   `CreateTicket`, …), DTOs, and mappings. Every use case returns an `Ardalis.Result<T>`. A use case
-  depends on the base **`DbContext`** and queries with plain LINQ (`db.Set<T>()…`).
+  depends on the repository abstractions (`IReadRepository<T>` / `IRepository<T>`) + `IUnitOfWork`, never
+  on EF Core directly (see the note below).
 - **Infrastructure** — the module’s **blueprint** `DbContext`, the `XModule` class (which is both
   `IModule` and `IModuleModel`), seeding, and the **integration‑event handlers**.
 - **Api** — **controllers only**. A controller injects use cases, calls them, and maps the `Result` to
@@ -95,8 +96,8 @@ MediatR publish)**.
 > over it serves **every** module's entities; a module adds a **specific** repository only where the
 > generic one falls short — Support's `ITicketRepository.ListSummariesAsync` projects a message *count*
 > in the database (a plain‑LINQ correlated sub‑query) instead of loading every message body. Reads are
-> materialised and async (with typed *and* string includes), so the Application layer never touches EF
-> Core's `IQueryable`. `SaveChanges` is the `IUnitOfWork`'s job, not the repository's, so a use case owns
+> materialised and async (with typed, compile‑time‑safe includes), so the Application layer never touches
+> EF Core's `IQueryable`. `SaveChanges` is the `IUnitOfWork`'s job, not the repository's, so a use case owns
 > its transaction boundary. `Ardalis.Specification` was removed (it isn't needed); `Ardalis.Result` stays.
 
 ---
@@ -140,6 +141,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
     foreach (var module in _modules)
         modelBuilder.ApplyModuleModel(module);          // reflect DbSets + module.Configure(...)
     modelBuilder.ApplyModuleSchemas(_modules, KernelSchema); // place every table in its owner's schema
+    modelBuilder.ApplyClientAssignedKeys();             // Entity Guid keys are client-assigned (see §Persistence)
 }
 ```
 
@@ -306,7 +308,7 @@ Modules never read each other’s tables. When they must interact, they use one 
 
 ```csharp
 // Warehouse.Contracts:  interface IWarehouseApi { Task<IReadOnlyList<ProductStock>> GetProductsAsync(...); }
-// Warehouse.Application: sealed class WarehouseApi : IWarehouseApi { /* queries db.Set<Product>() */ }
+// Warehouse.Application: sealed class WarehouseApi : IWarehouseApi { /* queries via IReadRepository<Product> */ }
 // Sales.Application:     injects IWarehouseApi — never sees WarehouseApi, Product, or a Warehouse table.
 ```
 

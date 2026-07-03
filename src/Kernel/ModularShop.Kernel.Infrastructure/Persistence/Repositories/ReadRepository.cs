@@ -28,25 +28,20 @@ public class ReadRepository<T> : IReadRepository<T> where T : Entity
     }
 
     /// <summary>
-    /// The single place queries are shaped: tracking, typed + string includes, filtering, ordering. Reads
-    /// pass <c>tracking: false</c>; the tracked overloads pass <c>true</c>. Kept <c>protected</c> for the
+    /// The single place queries are shaped: tracking, typed includes, filtering, ordering. Reads pass
+    /// <c>tracking: false</c>; the tracked overloads pass <c>true</c>. Kept <c>protected</c> for the
     /// repository and its module subclasses; never exposed to the Application layer.
     /// </summary>
     protected IQueryable<T> Query(
         bool tracking,
         Expression<Func<T, bool>>? predicate = null,
         IEnumerable<Expression<Func<T, object?>>>? typedIncludes = null,
-        IEnumerable<string>? stringIncludes = null,
         Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null)
     {
         IQueryable<T> query = tracking ? Set : Set.AsNoTracking();
 
         if (typedIncludes is not null)
             foreach (var include in typedIncludes)
-                query = query.Include(include);
-
-        if (stringIncludes is not null)
-            foreach (var include in stringIncludes)
                 query = query.Include(include);
 
         if (predicate is not null)
@@ -58,13 +53,15 @@ public class ReadRepository<T> : IReadRepository<T> where T : Entity
         return query;
     }
 
-    // ── By-key gets: TRACKED (Find semantics) ───────────────────────────────────────────────────────
-    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-        => await Set.FindAsync(new object?[] { id }, cancellationToken);
-
+    // ── By-key gets: TRACKED (for load-then-modify flows) ───────────────────────────────────────────
     public virtual async Task<IReadOnlyList<T>> GetByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
-        => await Set.Where(e => ids.Contains(e.Id)).ToListAsync(cancellationToken);
+    {
+        if (ids.Count == 0)
+            return Array.Empty<T>();
+
+        return await Set.Where(e => ids.Contains(e.Id)).ToListAsync(cancellationToken);
+    }
 
     public virtual async Task<T?> GetForUpdateAsync(
         Expression<Func<T, bool>> predicate,
@@ -105,10 +102,4 @@ public class ReadRepository<T> : IReadRepository<T> where T : Entity
         CancellationToken cancellationToken = default,
         params Expression<Func<T, object?>>[] includes)
         => await Query(tracking: false, predicate: predicate, typedIncludes: includes, orderBy: orderBy).ToListAsync(cancellationToken);
-
-    public virtual async Task<IReadOnlyList<T>> ListWithIncludesAsync(
-        Expression<Func<T, bool>>? predicate,
-        IReadOnlyCollection<string> stringIncludes,
-        CancellationToken cancellationToken = default)
-        => await Query(tracking: false, predicate: predicate, stringIncludes: stringIncludes).ToListAsync(cancellationToken);
 }

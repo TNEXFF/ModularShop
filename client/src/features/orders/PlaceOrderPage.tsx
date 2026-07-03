@@ -9,10 +9,15 @@ export function PlaceOrderPage() {
   const [placed, setPlaced] = useState<Order | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string>()
 
   function load() {
-    api.products().then(setProducts).catch(() => {})
-    api.customers().then(cs => { setCustomers(cs); if (cs[0] && !customerId) setCustomerId(cs[0].id) }).catch(() => {})
+    setLoadError(undefined)
+    Promise.all([
+      api.products().then(setProducts),
+      api.customers().then(cs => { setCustomers(cs); if (cs[0] && !customerId) setCustomerId(cs[0].id) }),
+    ]).catch(e => setLoadError(e.message)).finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -39,6 +44,9 @@ export function PlaceOrderPage() {
       setBusy(false)
     }
   }
+
+  if (loading) return <p className="muted">Loading…</p>
+  if (loadError) return <p className="error">{loadError}</p>
 
   return (
     <section>

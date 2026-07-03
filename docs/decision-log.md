@@ -237,8 +237,8 @@ Each decision lists the **choice**, the **reasoning**, and the **alternatives co
 
 ### D14 — Frontend: **Vite + React + TypeScript**, pnpm, minimal deps, feature folders
 - **Choice:** a Vite React‑TS app under `client/`, using `pnpm`, with `src/features/{catalog,orders,shipments}`
-  mirroring the backend modules; plain fetch for the API and hand‑written CSS (no UI kit, no axios,
-  no state library). In production the API host serves the built SPA (**one deployment unit** — the
+  mirroring the backend modules (later joined by `auth` and `support` — D27/D28); plain fetch for the API
+  and hand‑written CSS (no UI kit, no axios, no state library). In production the API host serves the built SPA (**one deployment unit** — the
   core MM selling point); in dev, Vite proxies `/api` to the host.
 - **Reasoning:** keeps the React surface small so attention stays on the architecture, while the
   feature folders reinforce the modular structure on the client. Serving the built SPA from the API
@@ -326,7 +326,8 @@ which is normal for an ADR log — the original reasoning is left intact above s
 - **Choice:** `Swashbuckle.AspNetCore` provides Swagger/OpenAPI UI at `/swagger`, enabled in every
   environment for this demo.
 - **Reasoning:** the brief asks to configure Swagger; Swashbuckle is the familiar choice for a .NET team
-  and, with `[ApiController]` controllers, needs no per‑endpoint annotation to list all 10 routes.
+  and, with `[ApiController]` controllers, needs no per‑endpoint annotation to list the routes (10 at the
+  time of this decision; ~20 today after the auth + support endpoints were added).
 
 ### D22 — Rename **Kernel** and **Server**; bump Node/pnpm
 - **Choice:** `SharedKernel*` → `Kernel.*` (drop "Shared"); `ModularShop.Api` → `ModularShop.Server`.
@@ -352,7 +353,8 @@ the evolution stays visible.
   `IModuleModel { Schema; ContextType; Configure(ModelBuilder); }`: `ModuleModelBuilder.ApplyModuleModel`
   **reflects** the blueprint’s `DbSet<T>` properties to register the module’s ordinary entities, then
   calls the module’s one `Configure` for special mapping. Every service injects the base `DbContext`,
-  aliased to the host context.
+  aliased to the host context. *(Partly superseded by D30: use cases now inject the repository
+  abstractions, not the `DbContext` — only the repositories and `UnitOfWork` resolve the aliased context.)*
 - **Reasoning:** this is exactly the user’s vision — *context‑per‑module for organisation and schemas,
   one context for runtime*. It removes "which context do I inject?", makes cross‑module reads/writes a
   single change‑tracker/transaction, and lets the host own migrations — while each module still has an
@@ -386,6 +388,9 @@ the evolution stays visible.
   for itself here.
 - **Cost accepted:** the Domain‑purity rule (Application must not see EF) is given up. Kept `Ardalis.Result`
   (D17) — it is unrelated to querying and still maps `Result`→`ApiResponse`.
+- **Superseded by D30:** the repository removal and "EF Core in the Application layer" were reversed — a
+  hand‑rolled repository layer was restored and the Application layer is EF‑free again. Only D25’s
+  **`Ardalis.Specification` removal still stands.**
 
 ### D26 — **Shared kernel entities**: `Customer` and `Currency` (nuance to D4’s "lean kernel")
 - **Choice:** promote `Customer` (used by Sales, Shipping, Support) and add `Currency` (used by Warehouse
@@ -452,11 +457,12 @@ longer references EF Core.
   `where T : Entity`); `IUnitOfWork` in `Kernel.Application`. Implementations are in `Kernel.Infrastructure`:
   a **public** `ReadRepository<T>` → `Repository<T>` bound to the base `DbContext` (the one host context),
   registered **open-generic** so a single implementation serves every module's entities; plus `UnitOfWork`
-  (translates `DbUpdateConcurrencyException` → `DatabaseUpdateException`). Reads are **materialised + async**
-  (the Application never sees `IQueryable`) and `NoTracking` by default; `GetByIdAsync` / `GetByIdsAsync` /
-  `GetForUpdateAsync` are **tracked** for load-then-modify. Includes are **typed and string** (the latter for
-  cross-cutting navigations). Committing is the unit of work's job, not the repository's. All four module
-  `*.Application` projects **dropped the EF Core package**.
+  (translates EF Core's `DbUpdateConcurrencyException` and the base `DbUpdateException` → `DatabaseUpdateException`).
+  Reads are **materialised + async** (the Application never sees `IQueryable`) and `NoTracking` by default;
+  `GetByIdsAsync` / `GetForUpdateAsync` are **tracked** for load-then-modify. Includes are **typed**
+  (compile-time-safe). Committing is the unit of work's job, not the repository's. All four module
+  `*.Application` projects **dropped the EF Core package**. *(The interface was trimmed to the methods the
+  modules actually use — see D34.)*
 - **A specific repository only where it earns it:** Support's `ITicketRepository.ListSummariesAsync`
   projects a message **count** in the database (plain-LINQ correlated sub-query, no raw SQL) instead of
   loading every message body — the generic repository would be both inefficient and the wrong shape for the
@@ -482,4 +488,62 @@ longer references EF Core.
   or new migration results (`InitialCreate` was regenerated to keep the model snapshot in sync). Identity's
   string/int keys and the code-keyed `Currency` are untouched.
 
-_Last updated: 2026‑07‑03._
+---
+
+## 8. Inspection round (2026‑07‑03)
+
+A full inspection of the solution (backend, frontend, docs, seed data) surfaced one functional defect and
+a set of smaller issues. These decisions record the fixes. None changes the schema, so no migration was
+regenerated.
+
+### D32 — The demo prices everything in **USD** (simplify; supersedes the mixed‑currency seed)
+- **Choice:** all seeded products and orders use USD; the kernel seeds only the USD `Currency` row. The
+  `Currency` entity and its cross‑module foreign keys (Warehouse `Product`, Sales `Order`) stay — it is
+  still a shared‑kernel lookup, just with one row.
+- **Reasoning:** the earlier seed priced a few products in EUR/GBP, but `PlaceOrder` and the order seed
+  always stamped the order currency `"USD"`, so EUR/GBP product orders were mislabelled and one seeded
+  basket even mixed currencies. Rather than build currency‑derivation + mixed‑basket validation into the
+  order flow, the teaching value wasn't worth the complexity — the example is about module boundaries, not
+  FX. Standardising on USD removes the inconsistency at the source.
+
+### D33 — `UnitOfWork` also translates the base `DbUpdateException`
+- **Choice:** `SaveChangesAsync` now catches `DbUpdateException` (unique‑index / FK / NOT NULL violations)
+  in addition to `DbUpdateConcurrencyException`, both → `DatabaseUpdateException` (concurrency caught first,
+  as it derives from the base type).
+- **Reasoning:** constraint violations are the *common* save failure and were the one case leaking the raw
+  EF Core exception past the abstraction — defeating the class's stated purpose ("callers never reference
+  EF Core to handle it").
+
+### D34 — Trim the generic repository API to what the modules use
+- **Choice:** removed the zero‑call‑site members from `IReadRepository<T>` / `IRepository<T>`: the singular
+  `GetByIdAsync`, `AddRangeAsync`, `RemoveRange`, and the **string‑path** `ListWithIncludesAsync` overload
+  (with its `stringIncludes` plumbing in `Query`). Kept core CRUD (`AddAsync` / `Update` / `Remove`) and the
+  typed‑include reads that are actually used.
+- **Reasoning:** a teaching reference should not carry unused API surface a learner might assume is required.
+  The string‑include overload in particular had no consumer (all includes are typed). Easy to add back the
+  day a real need appears.
+
+### D35 — Seed data completeness and correctness
+- **Choice:** (a) opening product stock is now **net of** the historical orders' quantities, so the
+  catalogue is consistent with the order history; (b) added a **cancelled** order + shipment and a
+  **closed** ticket so all enum states are demonstrated (7 orders, 7 shipments, 4 tickets); (c) seeded
+  ticket messages take an explicit past `sentOnUtc` (new optional parameter on `Ticket.AddMessage`) so a
+  historical thread reads in order instead of all messages being stamped at seed‑run time.
+- **Reasoning:** the inspection found stock that ignored the seeded sales, enum states never shown, and a
+  resolved ticket whose messages post‑dated its resolution — small but visible teaching‑data flaws.
+
+### D36 — Central Package Management (`Directory.Packages.props`)
+- **Choice:** a repo‑root `Directory.Packages.props` declares every NuGet version once
+  (`ManagePackageVersionsCentrally`); all 23 projects reference packages by name with no `Version`.
+- **Reasoning:** versions were duplicated across many `.csproj` (e.g. `Ardalis.Result` in five, `MediatR` in
+  three) — a drift risk and exactly the kind of thing a modular solution should centralise.
+
+### D37 — Robustness fixes (repository, model convention, frontend)
+- **Choice:** `ApplyClientAssignedKeys` now touches only a type's real primary‑key `Id` and skips owned /
+  keyless types (future‑proofing D31); `GetByIdsAsync` short‑circuits on an empty id list; the SPA now
+  handles a **401 globally** — an expired session drops the user back to the sign‑in screen — and replaces
+  a couple of silent load failures / an `alert()` with the inline error + empty‑state patterns used
+  elsewhere.
+- **Reasoning:** hygiene and correctness items from the inspection, none altering the architecture.
+
+_Last updated: 2026‑07‑03 (inspection round)._

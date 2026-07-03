@@ -15,7 +15,6 @@ node_modules/
 
 # Generated SPA bundle (rebuild with: pnpm --dir client build)
 src/ModularShop.Server/wwwroot/
-src/ModularShop.Api/wwwroot/
 
 # Local run logs
 *.log

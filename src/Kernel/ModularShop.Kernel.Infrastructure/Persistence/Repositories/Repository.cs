@@ -16,12 +16,7 @@ public class Repository<T> : ReadRepository<T>, IRepository<T> where T : Entity
     public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         => await Set.AddAsync(entity, cancellationToken);
 
-    public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
-        => await Set.AddRangeAsync(entities, cancellationToken);
-
     public virtual void Update(T entity) => Set.Update(entity);
 
     public virtual void Remove(T entity) => Set.Remove(entity);
-
-    public virtual void RemoveRange(IEnumerable<T> entities) => Set.RemoveRange(entities);
 }

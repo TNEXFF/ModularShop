@@ -47,10 +47,10 @@ public sealed class KernelSeeder : IModuleInitializer
     {
         if (await _db.Set<Currency>().AnyAsync(ct)) return;
 
-        _db.Set<Currency>().AddRange(
-            new Currency("USD", "$", "US Dollar"),
-            new Currency("EUR", "€", "Euro"),
-            new Currency("GBP", "£", "Pound Sterling"));
+        // The demo prices everything in a single currency (USD) for simplicity. Currency is still a shared
+        // kernel entity referenced by both Warehouse (Product) and Sales (Order), demonstrating a
+        // cross-module lookup — there just happens to be one row.
+        _db.Set<Currency>().Add(new Currency("USD", "$", "US Dollar"));
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Seeded kernel currencies.");
     }

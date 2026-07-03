@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, type AuthUser } from '../api'
+import { api, setUnauthorizedHandler, type AuthUser } from '../api'
 
 interface AuthState {
   user: AuthUser | null
@@ -21,6 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false))
+  }, [])
+
+  // A 401 from any later request means the cookie expired: drop the user so the app returns to the
+  // AuthScreen. The initial me() probe opts out of this hook, so the logged-out startup case stays quiet.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null))
+    return () => setUnauthorizedHandler(null)
   }, [])
 
   const login = async (email: string, password: string) => setUser(await api.login(email, password))

@@ -4,6 +4,7 @@ import { api, date, type Shipment } from '../../api'
 export function ShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [error, setError] = useState<string>()
+  const [actionError, setActionError] = useState<string>()
   const [loading, setLoading] = useState(true)
 
   function refresh() {
@@ -12,11 +13,12 @@ export function ShipmentsPage() {
   useEffect(refresh, [])
 
   async function advance(id: string, kind: 'ship' | 'deliver') {
+    setActionError(undefined)
     try {
       kind === 'ship' ? await api.shipShipment(id) : await api.deliverShipment(id)
       refresh()
     } catch (e) {
-      alert((e as Error).message)
+      setActionError((e as Error).message)
     }
   }
 
@@ -28,7 +30,10 @@ export function ShipmentsPage() {
       <h2>Shipments <span className="owner">Shipping module</span></h2>
       <p className="muted">Shipments live in the <code>shipping</code> schema. Each was created by the Shipping module reacting to an <code>OrderPlaced</code> event — Shipping never reads the Sales tables.</p>
 
+      {actionError && <p className="error">{actionError}</p>}
+
       <div className="card">
+        {shipments.length === 0 ? <p className="muted">No shipments yet.</p> : (
         <table>
           <thead>
             <tr><th>Shipment #</th><th>Order #</th><th>Customer</th><th>Items</th><th>Status</th><th>Carrier / Tracking</th><th>Created</th><th></th></tr>
@@ -51,6 +56,7 @@ export function ShipmentsPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </section>
   )

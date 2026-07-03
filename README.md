@@ -121,7 +121,7 @@ except `register`/`login` require the auth cookie. Browse them at **`/swagger`**
 | Package | Where | Why |
 |---|---|---|
 | **Microsoft.AspNetCore.Identity.EntityFrameworkCore** `10.0.9` | Kernel.Infrastructure | Users/roles for authentication — a kernel concern, stored in the one host context. |
-| **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure **only** | The single host context, the generic `Repository<T>`, and `UnitOfWork`. The Application layer stays EF‑free — use cases depend on the repository abstractions instead. |
+| **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure | The single host context, the generic `Repository<T>`, and `UnitOfWork`. The Application layer stays EF‑free — use cases depend on the repository abstractions instead. (The host also references `EntityFrameworkCore.Design` for migration tooling.) |
 | **Ardalis.Result** `10.1.0` | Application, Kernel.Web | Result type every use case returns (`Success`/`NotFound`/`Invalid`), mapped to HTTP + `ApiResponse`. |
 | **MediatR** `14.1.0` (+ **MediatR.Contracts** `2.0.1`) | Infrastructure / Application / Server / `Sales.Contracts` | The in‑process integration‑event bus. `OrderPlaced` is an `INotification`. Community licence is free for education; key optional via `MediatR:LicenseKey`. |
 | **Swashbuckle.AspNetCore** `10.2.3` | Server | Swagger / OpenAPI UI at `/swagger`. |
@@ -130,6 +130,9 @@ except `register`/`login` require the auth cookie. Browse them at **`/swagger`**
 `IReadRepository<T>`/`IRepository<T>` + `IUnitOfWork` (modelled on the Platform / Social‑Media‑Platform
 kernels), plus a specific `ITicketRepository` where the generic one isn't enough. The Application layer no
 longer references EF Core, so Clean Architecture holds. `Ardalis.Result` stays.
+
+NuGet versions are managed centrally in **`Directory.Packages.props`** (central package management), so all
+projects reference each package by name and share one consistent set of versions.
 
 ---
 
@@ -192,11 +195,14 @@ every module’s tables. Migrations apply automatically at startup.
 
 ## Seed data
 Generous and coherent, created on first run:
-- **3 currencies** (USD, EUR, GBP) and **10 customers** in the shared **kernel**.
+- **1 currency** (USD) and **10 customers** in the shared **kernel**. `Currency` stays a shared kernel
+  entity referenced by both Warehouse and Sales — the demo just prices everything in USD for simplicity.
 - Identity **roles** (Admin, Agent) and **2 demo users**.
-- **18 products** across 6 categories (a few priced in EUR/GBP to show the shared `Currency`).
-- **6 historical orders** and **6 matching shipments** in varied states.
-- **3 support tickets** (with message threads) referencing the same customers.
+- **18 products** across 6 categories (all priced in USD). Opening stock is already net of the historical
+  orders below, so the catalogue is consistent with the order history.
+- **7 historical orders** and **7 matching shipments** in varied states — including one **cancelled**
+  order + shipment.
+- **4 support tickets** with message threads (Open / Pending / Resolved / **Closed**) referencing the same customers.
 
 ---
 
@@ -204,7 +210,7 @@ Generous and coherent, created on first run:
 
 On the build machine (WSL2 with the Windows .NET 10 toolchain + SQL Server 2022):
 
-- ✅ `dotnet build` of the whole solution (**26 projects**) — 0 warnings, 0 errors.
+- ✅ `dotnet build` of the whole solution (**23 projects**) — 0 warnings, 0 errors.
 - ✅ `dotnet ef migrations add` for the **one** `ModularShopDbContext` — schemas `kernel` / `sales` /
   `warehouse` / `shipping` / `support`, child tables placed correctly, cross‑schema FKs to the shared
   kernel `Customer` (from Orders, Shipments, Tickets) and `Currency` (from Orders, Products).

@@ -41,9 +41,13 @@ public sealed class Ticket : Entity
         Status = TicketStatus.Open;
     }
 
-    public TicketMessage AddMessage(string authorUserId, string authorName, string body)
+    /// <summary>
+    /// Adds a message to the thread. <paramref name="sentOnUtc"/> defaults to now for real replies; seeding
+    /// passes an explicit past time so a historical conversation reads in the right order.
+    /// </summary>
+    public TicketMessage AddMessage(string authorUserId, string authorName, string body, DateTime? sentOnUtc = null)
     {
-        var message = new TicketMessage(Guid.NewGuid(), Id, authorUserId, authorName, body, DateTime.UtcNow);
+        var message = new TicketMessage(Guid.NewGuid(), Id, authorUserId, authorName, body, sentOnUtc ?? DateTime.UtcNow);
         _messages.Add(message);
         // A reply from anyone re-opens a resolved/closed ticket into Pending — a small, sensible rule.
         if (Status is TicketStatus.Resolved or TicketStatus.Closed)

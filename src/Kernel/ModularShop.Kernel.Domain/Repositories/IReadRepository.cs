@@ -9,18 +9,14 @@ namespace ModularShop.Kernel.Domain.Repositories;
 /// built and executed inside the Infrastructure implementation.
 /// <para>
 /// Tracking convention (matching the reference solutions): reads through a predicate are
-/// <c>AsNoTracking</c>; the by-key gets (<see cref="GetByIdAsync"/>, <see cref="GetByIdsAsync"/>) and
-/// <see cref="GetForUpdateAsync"/> return <b>tracked</b> entities, ready to be mutated and committed via
-/// the <c>IUnitOfWork</c>.
+/// <c>AsNoTracking</c>; the by-key get (<see cref="GetByIdsAsync"/>) and <see cref="GetForUpdateAsync"/>
+/// return <b>tracked</b> entities, ready to be mutated and committed via the <c>IUnitOfWork</c>.
 /// </para>
 /// </summary>
 /// <typeparam name="T">An entity type (has an <see cref="Entity.Id"/>).</typeparam>
 public interface IReadRepository<T> where T : Entity
 {
-    /// <summary>Loads a single entity by its key. <b>Tracked</b> — use for load-then-modify flows.</summary>
-    Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-
-    /// <summary>Loads the entities with the given keys. <b>Tracked</b>.</summary>
+    /// <summary>Loads the entities with the given keys. <b>Tracked</b> — use for load-then-modify flows.</summary>
     Task<IReadOnlyList<T>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -67,13 +63,4 @@ public interface IReadRepository<T> where T : Entity
         Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy,
         CancellationToken cancellationToken = default,
         params Expression<Func<T, object?>>[] includes);
-
-    /// <summary>
-    /// List (NoTracking) eagerly loading navigations named by <b>string path</b> — for cross-cutting
-    /// navigations that cannot be referenced by type across an assembly boundary, e.g. <c>"Customer.Address"</c>.
-    /// </summary>
-    Task<IReadOnlyList<T>> ListWithIncludesAsync(
-        Expression<Func<T, bool>>? predicate,
-        IReadOnlyCollection<string> stringIncludes,
-        CancellationToken cancellationToken = default);
 }

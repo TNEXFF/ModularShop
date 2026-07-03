@@ -131,15 +131,25 @@ function NewTicket({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string>()
 
   useEffect(() => {
-    api.customers().then(cs => { setCustomers(cs); if (cs[0]) setCustomerId(cs[0].id) }).catch(() => {})
+    api.customers()
+      .then(cs => { setCustomers(cs); if (cs[0]) setCustomerId(cs[0].id) })
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   async function submit() {
     setBusy(true); setError(undefined)
     try { await api.createTicket(customerId, subject, description); onDone() }
     catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+  }
+
+  if (loading || loadError) {
+    return <section><button className="btn small back-btn" onClick={onCancel}>← Cancel</button>
+      {loadError ? <p className="error">{loadError}</p> : <p className="muted">Loading…</p>}</section>
   }
 
   return (

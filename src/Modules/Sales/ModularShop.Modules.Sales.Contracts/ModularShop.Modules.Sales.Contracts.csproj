@@ -10,7 +10,7 @@
   <!-- Integration events are MediatR notifications. Contracts reference the lightweight
        MediatR.Contracts package (interfaces only), not the full MediatR runtime. -->
   <ItemGroup>
-    <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+    <PackageReference Include="MediatR.Contracts" />
   </ItemGroup>
 
 </Project>

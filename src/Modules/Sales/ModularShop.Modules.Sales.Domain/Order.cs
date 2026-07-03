@@ -47,4 +47,7 @@ public sealed class Order : Entity
 
     /// <summary>Used only by seeding, to represent historical completed orders.</summary>
     public void MarkCompleted() => Status = OrderStatus.Completed;
+
+    /// <summary>Used only by seeding, to represent a historical cancelled order.</summary>
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
 }
