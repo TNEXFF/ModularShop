@@ -335,4 +335,106 @@ which is normal for an ADR log — the original reasoning is left intact above s
   allows `esbuild` to run non‑interactively.
 - **Reasoning:** naming per the brief; version bumps to match the updated local toolchain.
 
-_Last updated: 2026‑07‑02._
+---
+
+## 6. Revision — "Option B": one host context, centralised migrations, Identity, a shared kernel model, and an independent module (2026‑07‑03)
+
+The example was reshaped to match the **target design for migrating `../Platform`**: instead of a
+context‑per‑module *at runtime* (the classic MM default, "Option A"), a **single host context absorbs
+per‑module blueprints** ("Option B", the shape Platform’s `MainDbContext` + `IModuleEntityProvider`
+already leans toward). Several earlier decisions are superseded; the originals are left intact above so
+the evolution stays visible.
+
+### D23 — A single **host DbContext** built from per‑module **blueprints** (supersedes D5’s per‑module runtime context; refines D16)
+- **Choice:** every module keeps its own `DbContext`, but only as an *organisational blueprint*
+  (DbSets only, never instantiated). At runtime there is **one** context, `ModularShopDbContext` in the
+  host, deriving from the kernel’s Identity base. It absorbs each module through a new
+  `IModuleModel { Schema; ContextType; Configure(ModelBuilder); }`: `ModuleModelBuilder.ApplyModuleModel`
+  **reflects** the blueprint’s `DbSet<T>` properties to register the module’s ordinary entities, then
+  calls the module’s one `Configure` for special mapping. Every service injects the base `DbContext`,
+  aliased to the host context.
+- **Reasoning:** this is exactly the user’s vision — *context‑per‑module for organisation and schemas,
+  one context for runtime*. It removes "which context do I inject?", makes cross‑module reads/writes a
+  single change‑tracker/transaction, and lets the host own migrations — while each module still has an
+  obvious, self‑contained place to declare its tables. Reflection means the DbSets are the recipe, so a
+  module never lists its entities twice, and there are **no per‑entity configuration classes**.
+- **Alternatives:** keep context‑per‑module at runtime (Option A — simpler isolation, but reintroduces
+  the injection ambiguity, multiple migration chains, and no single transaction across a request);
+  hand‑write `IEntityTypeConfiguration<T>` per entity and have the host apply them (more classes than the
+  user wanted). Rejected in favour of blueprint‑reflection + one `Configure` per module.
+
+### D24 — **Centralised migrations**, owned by the host (supersedes D5’s per‑module migrations)
+- **Choice:** one migration chain in `ModularShop.Server/Migrations`, generated with the official
+  `dotnet ef` tool against `ModularShopDbContext`. A design‑time factory builds the host context with the
+  same module list the runtime uses (`HostModules`), so one `migrations add` covers every module’s tables.
+  Schema‑per‑module is preserved by assigning each entity’s schema **after** the model is built, by the
+  assembly it lives in (`ApplyModuleSchemas`); one `dbo.__EFMigrationsHistory` remains.
+- **Reasoning:** with a single context the host is the natural migration owner, and one chain is simpler
+  to reason about and to apply at startup than N per‑module chains. Child entities (OrderLine, …) land in
+  the right schema automatically because they share their module’s Domain assembly.
+- **Alternatives:** per‑module migrations (Option A) or Grzybek‑style centralised SQL scripts. Rejected:
+  the EF‑tool single chain is the least‑ceremony fit here.
+
+### D25 — Use cases depend on **`DbContext`** directly; **remove Ardalis.Specification + the repository** (supersedes D10 and D18)
+- **Choice:** every use case injects the base `DbContext` and queries with plain LINQ
+  (`db.Set<T>()…Include…AsNoTracking`). `EfRepository`, `IRepositoryBase<T>`, and all `*Specs.cs`
+  specification classes were deleted; the Application layer now references EF Core.
+- **Reasoning:** the user asked for services to "work only with `DbContext`" and to drop the
+  specifications as unnecessary. With one shared context, a repository/specification indirection earns
+  little — a direct `DbContext` seam is easy to read and enough for this domain. This is a **deliberate
+  relaxation** of Clean Architecture (Application now knows EF), made consciously because it doesn’t pay
+  for itself here.
+- **Cost accepted:** the Domain‑purity rule (Application must not see EF) is given up. Kept `Ardalis.Result`
+  (D17) — it is unrelated to querying and still maps `Result`→`ApiResponse`.
+
+### D26 — **Shared kernel entities**: `Customer` and `Currency` (nuance to D4’s "lean kernel")
+- **Choice:** promote `Customer` (used by Sales, Shipping, Support) and add `Currency` (used by Warehouse
+  and Sales) into `Kernel.Domain`. Modules reference them by **cross‑schema foreign key**; those FKs are
+  the only cross‑schema references in the database.
+- **Reasoning:** the kernel is the right home for entities *two or more modules must agree on* — that is
+  what keeps a customer/currency consistent across the whole system, and it’s exactly the "centralised
+  entities used by multiple modules" the user wants. The FK to a kernel entity is the deliberate signal
+  "shared data", as opposed to another module’s *private* data (reached only via a contract). The kernel
+  stays lean: only genuinely shared reference entities go here, never a module’s own business entities.
+- **Alternatives:** keep Customer in Sales and let others snapshot it (Option A’s stance — fine for
+  decoupling, but doesn’t demonstrate a shared, consistent entity, which the brief asked for); promote
+  `Product` too (rejected — it would undermine the deliberate Sales↔Warehouse snapshot/contract lesson).
+
+### D27 — **ASP.NET Core Identity in the kernel**, cookie auth, whole app gated (supersedes D13’s header‑based `ICurrentUser`)
+- **Choice:** add ASP.NET Core Identity (`ApplicationUser`/`ApplicationRole`, `KernelDbContext :
+  IdentityDbContext`, tables in the `kernel` schema). A kernel `AuthController` does register/login/
+  logout/me with **cookie** sign‑in returning the `ApiResponse` envelope; `ApiControllerBase` carries
+  `[Authorize]`, so every module endpoint requires a signed‑in user; `ICurrentUser` now reads the
+  authenticated principal. Seeded demo users (`admin@`, `agent@`, password `Passw0rd!`).
+- **Reasoning:** the brief asked to replace the placeholder auth with the real Identity library, in the
+  kernel. Authentication is the archetypal cross‑cutting concern, so the kernel owns it and the single
+  host context persists it. Cookie auth is the simplest fit for a same‑origin SPA.
+- **Alternatives:** `MapIdentityApi` built‑in endpoints (less code, but a non‑`ApiResponse` shape); JWT
+  bearer (more moving parts for a same‑origin SPA). Rejected in favour of a small, envelope‑consistent,
+  cookie‑based `AuthController`.
+
+### D28 — A **genuinely independent** module: **Support** (extends D1)
+- **Choice:** add a fourth module, **Support** (customer‑service tickets: `Ticket` + `TicketMessage`),
+  that references **no** other module, publishes/consumes **no** integration events, and has **no**
+  `*.Contracts`. It uses only the kernel — the shared `Customer` and the signed‑in Identity user — and
+  owns its own `support` schema.
+- **Reasoning:** Sales/Warehouse/Shipping deliberately collaborate; Support deliberately does not. A
+  heterogeneous set (modules that must collaborate *and* modules that merely coexist) is a truer model of
+  Platform, whose modules range from tightly related to completely independent. Support is where the
+  "unrelated module + shared kernel entity" pattern is shown cleanly.
+- **Alternatives considered:** a Content/CMS module (even more isolated but doesn’t exercise the shared
+  entity or Identity), Notifications (tends to couple to other modules’ events). Support hit the sweet
+  spot of *unrelated domain* + *uses the kernel*.
+
+### D29 — Explicitly **skipped** for this iteration
+Per the brief, three otherwise‑natural additions were left out on purpose: the **architecture "tripwire"
+test** (module A can’t reference module B’s entity namespaces), a **startup check that every enabled
+module’s entities are actually mapped**, and a mechanism for modules to **opt into** the shared kernel
+behaviours. Each is noted in `architecture.md` as a next step.
+
+### What carried over unchanged
+Clean‑Architecture layering per module and in the kernel (D16), `Ardalis.Result`→`ApiResponse` (D17),
+**MediatR** for integration events only (D19), real **controllers invoking use cases** (D20), **Swagger**
+(D21), the two inter‑module communication styles (D7), and the `.slnx`/naming/toolchain conventions (D22).
+
+_Last updated: 2026‑07‑03._

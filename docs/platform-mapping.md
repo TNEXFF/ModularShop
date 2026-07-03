@@ -16,14 +16,16 @@ correctness, maintainability, and educational value**?
 
 | Platform component | Verdict | How it appears here (or why not) |
 |---|---|---|
-| `IModule` + `BaseModule` + capability interfaces (`IModuleWithDbContext`, `IModuleWithFrontend`, `IModuleWithPermissions`, `IModuleEntityProvider`) | **Adopted, simplified** | One small `IModule` (`Register` only). Controllers are discovered via MVC `ApplicationPart`s, so there is no `MapEndpoints`. Dropped the capability‑interface fan‑out. |
-| `ModuleRegistry` + `ModuleLoader` (reflection discovery, topological dependency sort, `ApplicationPartManager`) | **Adapted → simpler** | Explicit `IReadOnlyList<IModule>` in `Program.cs`; each module’s Api assembly added as an `ApplicationPart`. Reflection discovery is powerful but hides the wiring; an explicit list is clearer for teaching. |
-| `IRepository<T>` + generic `Repository<T>` (reads default to `NoTracking`) | **Adopted via Ardalis.Specification** | `EfRepository<TEntity,TContext>` on Ardalis `RepositoryBase`; queries are `Specification` objects defined per module in the Application layer. `NoTracking` is set on read specs. |
-| `Ardalis.Result` + `ApiResponse<T>` envelope | **Adopted (Ardalis package)** | Every use case returns `Ardalis.Result<T>`; the kernel base controller maps it to the kept `ApiResponse<T>` envelope + HTTP status. Now 1:1 with Platform. |
-| Clean‑Architecture shared layer (`TNEX.Core`/`Application`/`Infrastructure`/`Api`) | **Adopted as the Kernel** | `Kernel.Domain` / `.Application` / `.Infrastructure` / `.Web` — a four‑layer kernel (the word "Shared" dropped). Home of logging + identity. |
-| MVC controllers + `Swagger` | **Adopted** | Real controllers (in each module’s `*.Api`) invoke use cases and return `ApiResponse`; Swashbuckle serves Swagger at `/swagger`. (The first version used minimal APIs.) |
-| Per‑module `DbContext` + schema | **Adopted and made strict** | Every module has its own `DbContext` + schema via `HasDefaultSchema`, plus per‑schema migrations history. |
-| `ModularDbContext<T>` + `AddModule<T>()` + column‑level `ConfigureFieldExclusions()` | **Left out** | Powerful for multi‑customer schema composition, but subtle and easy to get wrong. One‑context‑per‑module is simpler and demonstrates isolation better. |
+| `IModule` + `BaseModule` + capability interfaces (`IModuleWithDbContext`, `IModuleWithFrontend`, `IModuleWithPermissions`, `IModuleEntityProvider`) | **Adopted, simplified** | A small `IModule` (`Register`) for services, plus an **`IModuleModel`** that directly mirrors Platform’s **`IModuleEntityProvider`** — each module contributes its entities to the one host context. Controllers are discovered via MVC `ApplicationPart`s (no `MapEndpoints`). Dropped the other capability interfaces. |
+| `ModuleRegistry` + `ModuleLoader` (reflection discovery, topological dependency sort, `ApplicationPartManager`) | **Adapted → simpler** | Explicit `IReadOnlyList<IModule>` in `HostModules`; each module’s Api assembly added as an `ApplicationPart`. Reflection discovery is powerful but hides the wiring; an explicit list is clearer for teaching. |
+| `IRepository<T>` + generic `Repository<T>` (reads default to `NoTracking`) | **Left out** | Services inject the base `DbContext` (aliased to the one host context) and query with LINQ (`AsNoTracking` on reads). No repository or specification layer — a deliberate simplification (see decision‑log D25). |
+| `Ardalis.Result` + `ApiResponse<T>` envelope | **Adopted (Ardalis package)** | Every use case returns `Ardalis.Result<T>`; the kernel base controller maps it to the kept `ApiResponse<T>` envelope + HTTP status. 1:1 with Platform. |
+| Clean‑Architecture shared layer (`TNEX.Core`/`Application`/`Infrastructure`/`Api`) | **Adopted as the Kernel** | `Kernel.Domain` / `.Application` / `.Infrastructure` / `.Web` — a four‑layer kernel. Home of Identity, the shared entities, logging. |
+| MVC controllers + `Swagger` | **Adopted** | Real controllers (in each module’s `*.Api`) invoke use cases and return `ApiResponse`; Swashbuckle serves Swagger at `/swagger`. |
+| Per‑module `DbContext` + schema | **Adopted as *blueprints*** | Each module keeps a `DbContext` for organisation, but a single **host context absorbs them all** (reflecting each module’s DbSets) — the shape of Platform’s `MainDbContext` + `IModuleEntityProvider`. Schema‑per‑module is preserved (assigned per entity); migrations are **centralised** in the host. |
+| `MainDbContext` composing module entities via `IModuleEntityProvider`; `ModularDbContext<T>` + `AddModule<T>()` | **Adopted (the core idea)** | This *is* the design here: `ModularShopDbContext` composes exactly the registered modules via `IModuleModel`. Platform’s per‑customer `ConfigureFieldExclusions()` (column‑level blacklists) is the one part left out — not needed for the teaching goal. |
+| Shared **domain entities** in `TNEX.Core` (Contracts, Partners, Devices, ValueRecords, …) | **Adopted — kept minimal** | Only genuinely shared *reference* entities go in the kernel: `Customer` (Sales/Shipping/Support) and `Currency` (Warehouse/Sales), linked by cross‑schema FK. A module’s *own* business entities stay in the module, so the kernel stays lean. |
+| ASP.NET Identity in `TNEX.Core`/`Infrastructure` (`ApplicationUser`, a `CoreDbContext : IdentityDbContext`) | **Adopted** | `ApplicationUser`/`ApplicationRole` + `KernelDbContext : IdentityDbContext` in the kernel; a cookie `AuthController`; every endpoint `[Authorize]`. Mirrors Platform’s Identity‑in‑the‑core approach. |
 | Inter‑module communication (Platform: shared entities in `TNEX.Core`, direct DI, occasional `IModuleRegistry` lookup; **no event bus**) | **Replaced with an explicit model** | Two first‑class styles: a public interface (`IWarehouseApi`, sync) and integration events (`OrderPlaced` as a **MediatR `INotification`**, async). This is an **improvement** over Platform’s ad‑hoc coupling. |
 | SignalR hubs (`NotificationHub`, `ImportHub`, …) | **Left out** | Not needed for the order→shipment flow. |
 | `AiReporting` module (LLM pipeline, RAG, tool orchestration) | **Left out** | Domain‑specific; adds several SDKs and dozens of files; distracts from MM fundamentals. |
@@ -46,10 +48,12 @@ The full reasoning for each of our own choices is in [`decision-log.md`](./decis
 | `TNEX.Infrastructure` (EF, repositories, module machinery) | `ModularShop.Kernel.Infrastructure` |
 | `TNEX.Api` (`ApiResponse`, middleware, controllers host bits) | `ModularShop.Kernel.Web` + `ModularShop.Server` |
 | `TNEX.Server` (host entry point) | `ModularShop.Server` (composition root) |
-| `TNEX.Module.*` (feature modules) | `ModularShop.Modules.{Sales,Warehouse,Shipping}.{Domain,Application,Infrastructure,Api}` (+ `*.Contracts`) |
-| `TNEX.Core/Services/Module/IModule*` | `ModularShop.Kernel.Infrastructure/IModule.cs` (simplified) |
-| `TNEX.Core/Services/Repository/IRepository` | Ardalis.Specification `IRepositoryBase<T>` + `Kernel.Infrastructure/Persistence/EfRepository.cs` |
+| `MainDbContext` composing modules via `IModuleEntityProvider` | `ModularShop.Server/Persistence/ModularShopDbContext.cs` (composes via `IModuleModel`) |
+| `TNEX.Module.*` (feature modules) | `ModularShop.Modules.{Sales,Warehouse,Shipping,Support}.{Domain,Application,Infrastructure,Api}` (+ `*.Contracts` where needed) |
+| `TNEX.Core/Services/Module/IModule*` + `IModuleEntityProvider` | `Kernel.Infrastructure/IModule.cs` + `Kernel.Infrastructure/Persistence/IModuleModel.cs` |
+| `TNEX.Core/Services/Repository/IRepository` | *(removed — services use the base `DbContext` directly)* |
 | `Ardalis.Result` + `TNEX.Api/.../ApiResponse` | `Ardalis.Result` (NuGet) + `Kernel.Web/ApiResponse.cs` |
+| ASP.NET Identity (`ApplicationUser`, Identity in Core/Infrastructure) | `Kernel.Infrastructure/Identity/*` + `KernelDbContext : IdentityDbContext` + `Kernel.Web/AuthController.cs` |
 
 ---
 
@@ -84,10 +88,13 @@ Do these in order; each step is shippable on its own and keeps the app working.
    here). Route **every** module — including `ProjectManagement` — through the same registration list
    or config. Remove hard‑coding from `Program.cs`.
 
-2. **Make data ownership a hard rule: one module → one `DbContext` → one schema → its own migrations.**
-   Give `ImportManager` and `Compliance` their own contexts + migrations; stop composing module
-   entities into `MainDbContext`. Put each context’s `__EFMigrationsHistory` in its own schema. Target:
-   *exactly one owner per table.* (This is the biggest and most valuable step.)
+2. **Make data ownership a hard rule: one *blueprint* context per module, composed into one host
+   context, with centralised migrations.** Keep `MainDbContext` as the single runtime context, but make
+   **every** module contribute its slice through one uniform `IModuleEntityProvider`/`IModuleModel` (as
+   demonstrated here) — including `ImportManager` and `Compliance`, whose tables are currently
+   hand‑composed. Assign each entity its module’s schema, and let the host own **one** migration chain.
+   Target: *exactly one declared owner per table*, even though a single context persists them all. (This
+   is the biggest and most valuable step, and it matches where `MainDbContext` is already heading.)
 
 3. **Introduce per‑module public contracts.** For each module, create a `*.Contracts` assembly holding
    only the interfaces/DTOs/events other modules may use. Move everything else to `internal`. Enforce
@@ -106,8 +113,9 @@ Do these in order; each step is shippable on its own and keeps the app working.
    business concept (Contracts, Partners, Devices, ValueRecords…) **into the module that owns it**;
    expose the rest as contracts. This is what actually decouples the modules.
 
-6. **Seed & initialise per module.** Give each module an `IModuleInitializer` (migrate + seed its own
-   schema), as here, instead of centralised migration logic.
+6. **Centralise migration; keep seeding per module.** The host migrates the one context once at startup;
+   each module keeps an `IModuleInitializer` that only *seeds* its own tables — ordered so shared kernel
+   data (customers, currencies, users) exists first — as demonstrated here.
 
 7. **Harden for production (later, only if needed).** Add a transactional **outbox/inbox** behind the
    MediatR publish for reliable events; consider **database‑per‑module** for any module that must scale
