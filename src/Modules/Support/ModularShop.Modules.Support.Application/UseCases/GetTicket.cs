@@ -1,5 +1,5 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Support.Domain;
 
 namespace ModularShop.Modules.Support.Application;
@@ -7,16 +7,13 @@ namespace ModularShop.Modules.Support.Application;
 /// <summary>Use case: fetch a single ticket with its full message thread.</summary>
 public sealed class GetTicket
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Ticket> _tickets;
 
-    public GetTicket(DbContext db) => _db = db;
+    public GetTicket(IReadRepository<Ticket> tickets) => _tickets = tickets;
 
     public async Task<Result<TicketDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {
-        var ticket = await _db.Set<Ticket>()
-            .Include(t => t.Messages)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
+        var ticket = await _tickets.GetWithIncludesAsync(t => t.Id == id, ct, t => t.Messages);
 
         return ticket is null
             ? Result<TicketDto>.NotFound($"Ticket {id} was not found.")

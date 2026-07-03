@@ -1,5 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using ModularShop.Kernel.Domain;
 
 namespace ModularShop.Kernel.Infrastructure.Persistence;
 
@@ -45,6 +47,30 @@ public static class ModuleModelBuilder
                 ? schema
                 : kernelSchema;
             entityType.SetSchema(owningSchema);
+        }
+    }
+
+    /// <summary>
+    /// Marks every domain entity's key as <b>client-assigned</b> (<see cref="ValueGenerated.Never"/>).
+    /// Each <see cref="Entity"/> sets its own <see cref="Entity.Id"/> Guid in its constructor, but EF Core's
+    /// default Guid convention is <c>ValueGeneratedOnAdd</c>. With that default, a NEW child added to an
+    /// ALREADY-TRACKED parent (e.g. a <c>TicketMessage</c> added to a loaded <c>Ticket</c>) is mis-detected
+    /// as an existing row — EF issues an <c>UPDATE</c> that affects 0 rows and throws a concurrency error
+    /// instead of inserting. Telling EF the key is client-assigned fixes that. The column is identical
+    /// either way (the Guid is produced in-memory, never by the database), so this changes no migration.
+    /// Only <see cref="Entity"/>-derived types are touched — Identity's string/int keys and the
+    /// code-keyed <c>Currency</c> keep their own conventions.
+    /// </summary>
+    public static void ApplyClientAssignedKeys(this ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(Entity).IsAssignableFrom(entityType.ClrType))
+                continue;
+
+            var idProperty = entityType.FindProperty(nameof(Entity.Id));
+            if (idProperty is not null)
+                idProperty.ValueGenerated = ValueGenerated.Never;
         }
     }
 

@@ -1,26 +1,36 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Kernel.Application;
+using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Support.Domain;
 
 namespace ModularShop.Modules.Support.Application;
 
 /// <summary>
 /// Use case: open a new support ticket for a customer. It validates the customer against the SHARED
-/// kernel <see cref="Customer"/> table (read straight from the host context) and stamps the ticket with
-/// the authenticated Identity user from the kernel's <see cref="ICurrentUser"/>.
+/// kernel <see cref="Customer"/> (read through the generic repository) and stamps the ticket with the
+/// authenticated Identity user from the kernel's <see cref="ICurrentUser"/>.
 /// </summary>
 public sealed class CreateTicket
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Customer> _customers;
+    private readonly IRepository<Ticket> _tickets;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
     private readonly ILogger<CreateTicket> _logger;
 
-    public CreateTicket(DbContext db, ICurrentUser currentUser, ILogger<CreateTicket> logger)
+    public CreateTicket(
+        IReadRepository<Customer> customers,
+        IRepository<Ticket> tickets,
+        IUnitOfWork unitOfWork,
+        ICurrentUser currentUser,
+        ILogger<CreateTicket> logger)
     {
-        _db = db;
+        _customers = customers;
+        _tickets = tickets;
+        _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _logger = logger;
     }
@@ -30,7 +40,7 @@ public sealed class CreateTicket
         if (string.IsNullOrWhiteSpace(request.Subject))
             return Result<TicketDto>.Invalid(new ValidationError("A ticket must have a subject."));
 
-        var customer = await _db.Set<Customer>().FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct);
+        var customer = await _customers.FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct);
         if (customer is null)
             return Result<TicketDto>.NotFound($"Customer {request.CustomerId} was not found.");
 
@@ -44,8 +54,8 @@ public sealed class CreateTicket
             _currentUser.UserName,
             DateTime.UtcNow);
 
-        _db.Set<Ticket>().Add(ticket);
-        await _db.SaveChangesAsync(ct);
+        await _tickets.AddAsync(ticket, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
         _logger.LogInformation("Opened support ticket '{Subject}' for {Customer}.", ticket.Subject, customer.Name);
 
         return Result<TicketDto>.Success(ticket.ToDto());

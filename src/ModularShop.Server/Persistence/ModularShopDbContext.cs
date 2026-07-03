@@ -29,7 +29,11 @@ public sealed class ModularShopDbContext : KernelDbContext
         foreach (var module in _modules)
             modelBuilder.ApplyModuleModel(module);
 
-        // Finally, place every table in its owner's schema (modules → their schema; the rest → kernel).
+        // Place every table in its owner's schema (modules → their schema; the rest → kernel).
         modelBuilder.ApplyModuleSchemas(_modules, KernelSchema);
+
+        // Domain entities assign their own Guid keys, so mark them client-assigned (otherwise EF mis-inserts
+        // a new child added to an already-tracked parent). Schema-neutral — see ApplyClientAssignedKeys.
+        modelBuilder.ApplyClientAssignedKeys();
     }
 }

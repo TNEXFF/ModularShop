@@ -76,7 +76,7 @@ There are **no** per‑module migrations — the host owns the single chain in `
 | Layer (per module) | Contents | May reference |
 |---|---|---|
 | `*.Domain` | Entities, enums, domain logic | Kernel.Domain |
-| `*.Application` | Use cases (inject `DbContext`), DTOs, mappings | Domain, Kernel.Application, other modules’ `*.Contracts`, EF Core |
+| `*.Application` | Use cases (inject `IReadRepository<T>`/`IRepository<T>` + `IUnitOfWork`), DTOs, mappings | Domain, Kernel.Domain, Kernel.Application, other modules’ `*.Contracts` (**no EF Core**) |
 | `*.Infrastructure` | Blueprint DbContext, `XModule` (`IModule`+`IModuleModel`), seeding, event handlers | Application, Domain, Kernel.Infrastructure |
 | `*.Api` | Controllers only (invoke use cases, return `ApiResponse`) | Application, Kernel.Web |
 | `*.Contracts` | Public surface other modules may use | nothing (or `MediatR.Contracts`) |
@@ -97,8 +97,8 @@ The whole app sits behind a **login** (authentication is a kernel concern; every
    (a MediatR `INotification`). **Warehouse** decrements stock and **Shipping** creates a `Pending`
    shipment — each reacting independently. All three run on the **one** host context.
 
-Requests flow **Controller → Use case → (`DbContext` LINQ | `IWarehouseApi` | MediatR)**. Controllers
-hold no logic; they invoke a single use case and wrap its `Ardalis.Result` in an `ApiResponse<T>`.
+Requests flow **Controller → Use case → (repositories + `IUnitOfWork` | `IWarehouseApi` | MediatR)**.
+Controllers hold no logic; they invoke a single use case and wrap its `Ardalis.Result` in an `ApiResponse<T>`.
 
 ### API endpoints
 | Method & path | Module | Purpose |
@@ -121,13 +121,15 @@ except `register`/`login` require the auth cookie. Browse them at **`/swagger`**
 | Package | Where | Why |
 |---|---|---|
 | **Microsoft.AspNetCore.Identity.EntityFrameworkCore** `10.0.9` | Kernel.Infrastructure | Users/roles for authentication — a kernel concern, stored in the one host context. |
-| **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure, Application | The single host context + LINQ. Use cases inject `DbContext` directly (no repository/specification layer). |
+| **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure **only** | The single host context, the generic `Repository<T>`, and `UnitOfWork`. The Application layer stays EF‑free — use cases depend on the repository abstractions instead. |
 | **Ardalis.Result** `10.1.0` | Application, Kernel.Web | Result type every use case returns (`Success`/`NotFound`/`Invalid`), mapped to HTTP + `ApiResponse`. |
 | **MediatR** `14.1.0` (+ **MediatR.Contracts** `2.0.1`) | Infrastructure / Application / Server / `Sales.Contracts` | The in‑process integration‑event bus. `OrderPlaced` is an `INotification`. Community licence is free for education; key optional via `MediatR:LicenseKey`. |
 | **Swashbuckle.AspNetCore** `10.2.3` | Server | Swagger / OpenAPI UI at `/swagger`. |
 
-`Ardalis.Specification` was **removed** — use cases now query the `DbContext` directly, so there are no
-specification classes.
+`Ardalis.Specification` was **removed** and replaced by our **own** repositories — a generic
+`IReadRepository<T>`/`IRepository<T>` + `IUnitOfWork` (modelled on the Platform / Social‑Media‑Platform
+kernels), plus a specific `ITicketRepository` where the generic one isn't enough. The Application layer no
+longer references EF Core, so Clean Architecture holds. `Ardalis.Result` stays.
 
 ---
 

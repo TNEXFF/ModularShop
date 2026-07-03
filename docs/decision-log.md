@@ -437,4 +437,49 @@ Clean‑Architecture layering per module and in the kernel (D16), `Ardalis.Resul
 **MediatR** for integration events only (D19), real **controllers invoking use cases** (D20), **Swagger**
 (D21), the two inter‑module communication styles (D7), and the `.slnx`/naming/toolchain conventions (D22).
 
+---
+
+## 7. Revision — our own repository layer (2026‑07‑03)
+
+D25 relaxed Clean Architecture by letting the Application layer depend on EF Core (use cases injected the
+`DbContext`). That went further than "remove the specifications" required. This revision keeps
+`Ardalis.Specification` **removed** but restores a repository — a hand-rolled one, modelled on Platform's
+`IRepository<T>`/`Repository<T>` and the sibling Social-Media-Platform kernel — so the Application layer no
+longer references EF Core.
+
+### D30 — Hand-rolled repositories + Unit of Work (supersedes D25's repository removal; keeps its Specification removal)
+- **Choice:** `IReadRepository<T>` + `IRepository<T>` live in `Kernel.Domain/Repositories` (constraint
+  `where T : Entity`); `IUnitOfWork` in `Kernel.Application`. Implementations are in `Kernel.Infrastructure`:
+  a **public** `ReadRepository<T>` → `Repository<T>` bound to the base `DbContext` (the one host context),
+  registered **open-generic** so a single implementation serves every module's entities; plus `UnitOfWork`
+  (translates `DbUpdateConcurrencyException` → `DatabaseUpdateException`). Reads are **materialised + async**
+  (the Application never sees `IQueryable`) and `NoTracking` by default; `GetByIdAsync` / `GetByIdsAsync` /
+  `GetForUpdateAsync` are **tracked** for load-then-modify. Includes are **typed and string** (the latter for
+  cross-cutting navigations). Committing is the unit of work's job, not the repository's. All four module
+  `*.Application` projects **dropped the EF Core package**.
+- **A specific repository only where it earns it:** Support's `ITicketRepository.ListSummariesAsync`
+  projects a message **count** in the database (plain-LINQ correlated sub-query, no raw SQL) instead of
+  loading every message body — the generic repository would be both inefficient and the wrong shape for the
+  ticket list. Sales / Warehouse / Shipping use only the generic repository; that contrast *is* the lesson.
+- **Reasoning:** dropping the specifications was right, but deleting the repository *and* pulling EF Core into
+  Application was too large a break with Clean Architecture for a teaching reference. A thin repository is a
+  recognisable seam, mirrors Platform, and — with one host context — costs almost nothing.
+- **Cost / alternatives:** `IReadRepository<>` and `IRepository<>` both map to the one `Repository<>`, so
+  resolving both in a scope yields two repository instances sharing the scope's single `DbContext` — no
+  correctness issue (the context is the unit of tracking). Baking `SaveChanges` into the repository
+  (Platform's style) was rejected for a separate `IUnitOfWork` (the sibling kernel's cleaner split).
+  `Currency` (string-keyed reference data, not an `Entity`) stays seed-only and needs no repository.
+
+### D31 — Domain entities have **client-assigned** keys (`ValueGeneratedNever`)
+- **Choice:** a global model convention (`ModuleModelBuilder.ApplyClientAssignedKeys`, applied by the host
+  context after the module models) marks every `Entity`-derived type's `Id` as client-assigned.
+- **Reasoning:** each entity sets its own `Guid` `Id` in its constructor, but EF Core's default Guid
+  convention (`ValueGeneratedOnAdd`) mis-detects a **new child added to an already-tracked parent** (e.g. a
+  `TicketMessage` added to a loaded `Ticket`) as an existing row — it issues an `UPDATE` affecting 0 rows and
+  throws a concurrency error instead of inserting. This latent defect (present since the entities were
+  written; surfaced by end-to-end validation of `AddTicketMessage`) is fixed by telling EF the key is
+  client-assigned. The column is unchanged — the Guid is generated in memory either way — so no schema change
+  or new migration results (`InitialCreate` was regenerated to keep the model snapshot in sync). Identity's
+  string/int keys and the code-keyed `Currency` are untouched.
+
 _Last updated: 2026‑07‑03._

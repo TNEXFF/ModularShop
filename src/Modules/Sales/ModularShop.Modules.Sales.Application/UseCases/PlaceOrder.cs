@@ -1,9 +1,10 @@
 using Ardalis.Result;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Kernel.Application;
+using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Sales.Contracts;
 using ModularShop.Modules.Sales.Domain;
 using ModularShop.Modules.Warehouse.Contracts;
@@ -19,25 +20,32 @@ namespace ModularShop.Modules.Sales.Application;
 /// the order is committed — Warehouse decrements stock and Shipping creates a shipment, each reacting
 /// independently.</item>
 /// </list>
-/// It reads the customer from the shared kernel <see cref="Customer"/> table, but reaches Warehouse
-/// only through its contract — never its tables.
+/// It reads the customer from the shared kernel <see cref="Customer"/> repository and writes the order
+/// through the Sales order repository, committing once via the <see cref="IUnitOfWork"/>. It reaches
+/// Warehouse only through its contract — never its tables — and never touches EF Core.
 /// </summary>
 public sealed class PlaceOrder
 {
-    private readonly DbContext _db;                 // the single host context (shared kernel + all modules)
-    private readonly IWarehouseApi _warehouse;      // Warehouse's PUBLIC interface (sync call)
-    private readonly IPublisher _publisher;         // MediatR — publishes integration events (async)
-    private readonly ICurrentUser _currentUser;     // cross-cutting identity from the kernel
+    private readonly IReadRepository<Customer> _customers; // shared kernel entity (read only)
+    private readonly IRepository<Order> _orders;           // Sales owns orders (read + write)
+    private readonly IUnitOfWork _unitOfWork;              // commits the new order in one transaction
+    private readonly IWarehouseApi _warehouse;             // Warehouse's PUBLIC interface (sync call)
+    private readonly IPublisher _publisher;                // MediatR — publishes integration events (async)
+    private readonly ICurrentUser _currentUser;            // cross-cutting identity from the kernel
     private readonly ILogger<PlaceOrder> _logger;
 
     public PlaceOrder(
-        DbContext db,
+        IReadRepository<Customer> customers,
+        IRepository<Order> orders,
+        IUnitOfWork unitOfWork,
         IWarehouseApi warehouse,
         IPublisher publisher,
         ICurrentUser currentUser,
         ILogger<PlaceOrder> logger)
     {
-        _db = db;
+        _customers = customers;
+        _orders = orders;
+        _unitOfWork = unitOfWork;
         _warehouse = warehouse;
         _publisher = publisher;
         _currentUser = currentUser;
@@ -49,7 +57,7 @@ public sealed class PlaceOrder
         if (request.Lines is null || request.Lines.Count == 0)
             return Result<OrderDto>.Invalid(new ValidationError("An order must contain at least one line."));
 
-        var customer = await _db.Set<Customer>().FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct);
+        var customer = await _customers.FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct);
         if (customer is null)
             return Result<OrderDto>.NotFound($"Customer {request.CustomerId} was not found.");
 
@@ -89,8 +97,9 @@ public sealed class PlaceOrder
         if (errors.Count > 0)
             return Result<OrderDto>.Invalid(errors);
 
-        _db.Set<Order>().Add(order);
-        await _db.SaveChangesAsync(ct);
+        // Stage the new order on its repository, then commit once through the unit of work.
+        await _orders.AddAsync(order, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         // ── ASYNCHRONOUS integration event ──────────────────────────────────────────────
         // Announce the fact. Warehouse decrements stock and Shipping creates a shipment, each in its own

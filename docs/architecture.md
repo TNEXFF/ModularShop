@@ -85,14 +85,19 @@ Each module is a small Clean‑Architecture stack of **four projects**, dependen
 - **Api** — **controllers only**. A controller injects use cases, calls them, and maps the `Result` to
   an `ApiResponse<T>` via the kernel base controller.
 
-The request path is uniform: **Controller → Use case → (`DbContext` LINQ | `IWarehouseApi` | MediatR
-publish)**.
+The request path is uniform: **Controller → Use case → (repositories + `IUnitOfWork` | `IWarehouseApi` |
+MediatR publish)**.
 
-> **A deliberate trade‑off.** Strict Clean Architecture keeps EF Core out of the Application layer.
-> Here, use cases inject `DbContext` directly (so the Application layer *does* reference EF Core) —
-> chosen for simplicity, so there are **no repository or specification classes** to write. A single
-> shared `DbContext` seam is easy to reason about; the cost is that the Application layer knows EF. This
-> is the "relax the strict rules where they don’t pay for themselves" call the whole example makes.
+> **Clean Architecture, kept — with our own repositories.** EF Core stays out of the Application layer.
+> Use cases depend on repository abstractions — `IReadRepository<T>` / `IRepository<T>` (in
+> `Kernel.Domain`) and `IUnitOfWork` (in `Kernel.Application`) — whose implementations live in
+> `Kernel.Infrastructure`. Because Option B has one host context, a single open‑generic `Repository<T>`
+> over it serves **every** module's entities; a module adds a **specific** repository only where the
+> generic one falls short — Support's `ITicketRepository.ListSummariesAsync` projects a message *count*
+> in the database (a plain‑LINQ correlated sub‑query) instead of loading every message body. Reads are
+> materialised and async (with typed *and* string includes), so the Application layer never touches EF
+> Core's `IQueryable`. `SaveChanges` is the `IUnitOfWork`'s job, not the repository's, so a use case owns
+> its transaction boundary. `Ardalis.Specification` was removed (it isn't needed); `Ardalis.Result` stays.
 
 ---
 
@@ -214,9 +219,14 @@ design‑time migration factory, so they never drift). `Program.cs` drives the l
 ```csharp
 var modules = HostModules.All();   // [ Sales, Warehouse, Shipping, Support ]
 
-// ONE host context; every service resolves the base DbContext, aliased to it.
+// ONE host context; the repositories + unit of work resolve the base DbContext, aliased to it.
 builder.Services.AddDbContext<ModularShopDbContext>(o => o.UseSqlServer(cs));
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbContext>());
+
+// One open-generic Repository<T> serves every module's entities; UnitOfWork commits.
+builder.Services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ASP.NET Core Identity (kernel concern), stored in the host context, cookie auth (§6).
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(…).AddEntityFrameworkStores<ModularShopDbContext>();

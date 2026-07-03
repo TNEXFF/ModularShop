@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ModularShop.Kernel.Application.Abstractions;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Application;
@@ -17,12 +18,14 @@ public sealed record NewShipmentItem(string ProductName, int Quantity);
 /// </summary>
 public sealed class CreateShipment
 {
-    private readonly DbContext _db;
+    private readonly IRepository<Shipment> _shipments;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CreateShipment> _logger;
 
-    public CreateShipment(DbContext db, ILogger<CreateShipment> logger)
+    public CreateShipment(IRepository<Shipment> shipments, IUnitOfWork unitOfWork, ILogger<CreateShipment> logger)
     {
-        _db = db;
+        _shipments = shipments;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -34,8 +37,8 @@ public sealed class CreateShipment
         foreach (var item in request.Items)
             shipment.AddItem(item.ProductName, item.Quantity);
 
-        _db.Set<Shipment>().Add(shipment);
-        await _db.SaveChangesAsync(ct);
+        await _shipments.AddAsync(shipment, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
         _logger.LogInformation("Shipping created shipment {ShipmentNumber} for order {OrderNumber}.",
             shipment.ShipmentNumber, request.OrderNumber);
     }

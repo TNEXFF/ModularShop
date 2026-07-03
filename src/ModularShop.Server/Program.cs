@@ -1,9 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Application.Abstractions;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Identity;
 using ModularShop.Kernel.Infrastructure.Persistence;
+using ModularShop.Kernel.Infrastructure.Persistence.Repositories;
 using ModularShop.Kernel.Web;
 using ModularShop.Modules.Sales.Api;
 using ModularShop.Modules.Shipping.Api;
@@ -29,8 +32,17 @@ var connectionString = builder.Configuration.GetConnectionString("ModularShopDem
 // ── The single host context: owns the database + the centralised migrations ────────────────────
 builder.Services.AddDbContext<ModularShopDbContext>(options => options.UseSqlServer(connectionString));
 
-// Every use case depends on the base DbContext; alias it to the one host context.
+// Every repository depends on the base DbContext; alias it to the one host context.
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbContext>());
+
+// ── Data access: the generic repositories + unit of work, over the one host context ─────────────
+// A single open-generic Repository<T> serves every module's entities (Option B has one context).
+// Use cases depend on IReadRepository<T> / IRepository<T> (in the Domain) and IUnitOfWork (in the
+// Application) — never on EF Core. A module registers its OWN specific repository only where the
+// generic one falls short (see Support's ITicketRepository).
+builder.Services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ── ASP.NET Core Identity (a kernel concern) with cookie auth, stored in the host context ───────
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>

@@ -10,11 +10,13 @@
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Modules.Warehouse.Domain\ModularShop.Modules.Warehouse.Domain.csproj" />
     <ProjectReference Include="..\ModularShop.Modules.Warehouse.Contracts\ModularShop.Modules.Warehouse.Contracts.csproj" />
+    <!-- For IUnitOfWork (the repository interfaces come transitively via Warehouse.Domain -> Kernel.Domain). -->
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Ardalis.Result" Version="10.1.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
+    <!-- No EF Core: use cases depend on the repository abstractions + IUnitOfWork, not the DbContext. -->
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
   </ItemGroup>
 

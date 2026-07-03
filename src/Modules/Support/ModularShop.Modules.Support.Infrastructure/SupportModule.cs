@@ -28,6 +28,10 @@ public sealed class SupportModule : IModule, IModuleModel
         services.AddScoped<AddTicketMessage>();
         services.AddScoped<ChangeTicketStatus>();
 
+        // Support's SPECIFIC repository (the generic IRepository<Ticket> is registered by the host).
+        // Used by ListTickets for its efficient count-projection query.
+        services.AddScoped<ITicketRepository, TicketRepository>();
+
         services.AddScoped<IModuleInitializer, SupportSeeder>();
     }
 

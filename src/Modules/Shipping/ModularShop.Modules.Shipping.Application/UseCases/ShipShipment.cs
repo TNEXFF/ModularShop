@@ -1,5 +1,6 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Application.Abstractions;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Application;
@@ -7,15 +8,19 @@ namespace ModularShop.Modules.Shipping.Application;
 /// <summary>Use case: advance a shipment from Pending to Shipped (assigns carrier + tracking number).</summary>
 public sealed class ShipShipment
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Shipment> _shipments;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public ShipShipment(DbContext db) => _db = db;
+    public ShipShipment(IReadRepository<Shipment> shipments, IUnitOfWork unitOfWork)
+    {
+        _shipments = shipments;
+        _unitOfWork = unitOfWork;
+    }
 
     public async Task<Result<ShipmentDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {
-        var shipment = await _db.Set<Shipment>()
-            .Include(s => s.Items)
-            .FirstOrDefaultAsync(s => s.Id == id, ct); // tracked — the state change is persisted
+        // Tracked (with items, for the response DTO) so the state change is persisted on commit.
+        var shipment = await _shipments.GetForUpdateAsync(s => s.Id == id, ct, s => s.Items);
         if (shipment is null)
             return Result<ShipmentDto>.NotFound($"Shipment {id} was not found.");
 
@@ -23,7 +28,7 @@ public sealed class ShipShipment
             return Result<ShipmentDto>.Invalid(new ValidationError(
                 $"Shipment {shipment.ShipmentNumber} cannot be shipped from status '{shipment.Status}'."));
 
-        await _db.SaveChangesAsync(ct);
+        await _unitOfWork.SaveChangesAsync(ct);
         return Result<ShipmentDto>.Success(shipment.ToDto());
     }
 

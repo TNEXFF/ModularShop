@@ -1,5 +1,5 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Application;
@@ -7,17 +7,17 @@ namespace ModularShop.Modules.Shipping.Application;
 /// <summary>Use case: list all shipments (most recent first), each with its items.</summary>
 public sealed class ListShipments
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Shipment> _shipments;
 
-    public ListShipments(DbContext db) => _db = db;
+    public ListShipments(IReadRepository<Shipment> shipments) => _shipments = shipments;
 
     public async Task<Result<IReadOnlyList<ShipmentDto>>> ExecuteAsync(CancellationToken ct)
     {
-        var shipments = await _db.Set<Shipment>()
-            .Include(s => s.Items)
-            .OrderByDescending(s => s.CreatedOnUtc)
-            .AsNoTracking()
-            .ToListAsync(ct);
+        var shipments = await _shipments.ListWithIncludesAsync(
+            predicate: null,
+            orderBy: q => q.OrderByDescending(s => s.CreatedOnUtc),
+            cancellationToken: ct,
+            s => s.Items);
 
         return Result<IReadOnlyList<ShipmentDto>>.Success(shipments.Select(s => s.ToDto()).ToList());
     }

@@ -1,5 +1,5 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Application;
@@ -7,16 +7,13 @@ namespace ModularShop.Modules.Shipping.Application;
 /// <summary>Use case: fetch a single shipment (with its items) by id.</summary>
 public sealed class GetShipment
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Shipment> _shipments;
 
-    public GetShipment(DbContext db) => _db = db;
+    public GetShipment(IReadRepository<Shipment> shipments) => _shipments = shipments;
 
     public async Task<Result<ShipmentDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {
-        var shipment = await _db.Set<Shipment>()
-            .Include(s => s.Items)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+        var shipment = await _shipments.GetWithIncludesAsync(s => s.Id == id, ct, s => s.Items);
 
         return shipment is null
             ? Result<ShipmentDto>.NotFound($"Shipment {id} was not found.")

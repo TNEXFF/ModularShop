@@ -1,24 +1,23 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
 using ModularShop.Modules.Support.Domain;
 
 namespace ModularShop.Modules.Support.Application;
 
-/// <summary>Use case: list all support tickets (most recently opened first).</summary>
+/// <summary>
+/// Use case: list all support tickets (most recently opened first). It uses the module's SPECIFIC
+/// <see cref="ITicketRepository"/> rather than the generic repository, because the list needs a message
+/// count per ticket — which the specific repository projects in the database instead of loading every
+/// message body (see <see cref="ITicketRepository.ListSummariesAsync"/>).
+/// </summary>
 public sealed class ListTickets
 {
-    private readonly DbContext _db;
+    private readonly ITicketRepository _tickets;
 
-    public ListTickets(DbContext db) => _db = db;
+    public ListTickets(ITicketRepository tickets) => _tickets = tickets;
 
     public async Task<Result<IReadOnlyList<TicketListItemDto>>> ExecuteAsync(CancellationToken ct)
     {
-        var tickets = await _db.Set<Ticket>()
-            .Include(t => t.Messages)
-            .OrderByDescending(t => t.CreatedOnUtc)
-            .AsNoTracking()
-            .ToListAsync(ct);
-
-        return Result<IReadOnlyList<TicketListItemDto>>.Success(tickets.Select(t => t.ToListItem()).ToList());
+        var summaries = await _tickets.ListSummariesAsync(ct);
+        return Result<IReadOnlyList<TicketListItemDto>>.Success(summaries.Select(s => s.ToListItem()).ToList());
     }
 }

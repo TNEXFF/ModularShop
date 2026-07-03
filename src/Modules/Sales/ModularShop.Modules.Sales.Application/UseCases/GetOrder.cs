@@ -1,5 +1,5 @@
 using Ardalis.Result;
-using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Sales.Domain;
 
 namespace ModularShop.Modules.Sales.Application;
@@ -7,16 +7,13 @@ namespace ModularShop.Modules.Sales.Application;
 /// <summary>Use case: fetch a single order (with its lines) by id.</summary>
 public sealed class GetOrder
 {
-    private readonly DbContext _db;
+    private readonly IReadRepository<Order> _orders;
 
-    public GetOrder(DbContext db) => _db = db;
+    public GetOrder(IReadRepository<Order> orders) => _orders = orders;
 
     public async Task<Result<OrderDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {
-        var order = await _db.Set<Order>()
-            .Include(o => o.Lines)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(o => o.Id == id, ct);
+        var order = await _orders.GetWithIncludesAsync(o => o.Id == id, ct, o => o.Lines);
 
         return order is null
             ? Result<OrderDto>.NotFound($"Order {id} was not found.")

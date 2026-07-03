@@ -12,6 +12,8 @@ internal static class SupportMappings
             .Select(m => new TicketMessageDto(m.AuthorName, m.Body, m.SentOnUtc))
             .ToList());
 
-    public static TicketListItemDto ToListItem(this Ticket t) =>
-        new(t.Id, t.Subject, t.CustomerName, t.Status.ToString(), t.CreatedOnUtc, t.Messages.Count);
+    // Maps the lightweight projection produced by ITicketRepository.ListSummariesAsync (the ticket list
+    // does not load full Ticket graphs — only these summary fields + the message count).
+    public static TicketListItemDto ToListItem(this TicketSummary s) =>
+        new(s.Id, s.Subject, s.CustomerName, s.Status.ToString(), s.CreatedOnUtc, s.MessageCount);
 }

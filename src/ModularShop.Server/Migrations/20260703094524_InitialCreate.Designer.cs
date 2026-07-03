@@ -12,7 +12,7 @@ using ModularShop.Server.Persistence;
 namespace ModularShop.Server.Migrations
 {
     [DbContext(typeof(ModularShopDbContext))]
-    [Migration("20260702233622_InitialCreate")]
+    [Migration("20260703094524_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -155,7 +155,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Kernel.Domain.Customer", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Email")
@@ -276,7 +275,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Sales.Domain.Order", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CurrencyCode")
@@ -327,7 +325,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Sales.Domain.OrderLine", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("OrderId")
@@ -358,7 +355,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Shipping.Domain.Shipment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Carrier")
@@ -419,7 +415,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Shipping.Domain.ShipmentItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ProductName")
@@ -443,7 +438,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Support.Domain.Ticket", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CreatedByName")
@@ -497,7 +491,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Support.Domain.TicketMessage", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AuthorName")
@@ -531,7 +524,6 @@ namespace ModularShop.Server.Migrations
             modelBuilder.Entity("ModularShop.Modules.Warehouse.Domain.Product", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Category")
