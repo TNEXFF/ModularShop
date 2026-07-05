@@ -2,9 +2,11 @@ using Ardalis.Result;
 using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Support.Application.Dtos;
+using ModularShop.Modules.Support.Application.Mappings;
 using ModularShop.Modules.Support.Domain;
 
-namespace ModularShop.Modules.Support.Application;
+namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>Use case: add a message to a ticket's thread, authored by the current user.</summary>
 public sealed class AddTicketMessage

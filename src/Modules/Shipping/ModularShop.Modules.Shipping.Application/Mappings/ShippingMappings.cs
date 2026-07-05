@@ -1,6 +1,7 @@
+using ModularShop.Modules.Shipping.Application.Dtos;
 using ModularShop.Modules.Shipping.Domain;
 
-namespace ModularShop.Modules.Shipping.Application;
+namespace ModularShop.Modules.Shipping.Application.Mappings;
 
 internal static class ShippingMappings
 {

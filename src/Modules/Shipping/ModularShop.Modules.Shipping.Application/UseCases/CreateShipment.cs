@@ -3,7 +3,7 @@ using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Shipping.Domain;
 
-namespace ModularShop.Modules.Shipping.Application;
+namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Input to <see cref="CreateShipment"/> — the order data needed to open a shipment.</summary>
 public sealed record NewShipment(

@@ -1,4 +1,4 @@
-namespace ModularShop.Modules.Shipping.Application;
+namespace ModularShop.Modules.Shipping.Application.Dtos;
 
 public sealed record ShipmentItemDto(string ProductName, int Quantity);
 

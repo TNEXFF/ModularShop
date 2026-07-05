@@ -1,4 +1,4 @@
-namespace ModularShop.Modules.Support.Application;
+namespace ModularShop.Modules.Support.Application.Dtos;
 
 public sealed record TicketMessageDto(string AuthorName, string Body, DateTime SentOnUtc);
 

@@ -1,4 +1,4 @@
-namespace ModularShop.Modules.Warehouse.Application;
+namespace ModularShop.Modules.Warehouse.Application.Dtos;
 
 /// <summary>Public shape of a product for the catalogue endpoints (this module's own API).</summary>
 public sealed record ProductResponse(

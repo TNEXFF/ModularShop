@@ -1,8 +1,9 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Warehouse.Application.Dtos;
 using ModularShop.Modules.Warehouse.Domain;
 
-namespace ModularShop.Modules.Warehouse.Application;
+namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
 /// <summary>Use case: return the whole product catalogue (ordered by category, then name).</summary>
 public sealed class ListProducts

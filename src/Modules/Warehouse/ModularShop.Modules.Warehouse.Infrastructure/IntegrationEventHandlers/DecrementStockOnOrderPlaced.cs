@@ -1,6 +1,6 @@
 using MediatR;
 using ModularShop.Modules.Sales.Contracts;
-using ModularShop.Modules.Warehouse.Application;
+using ModularShop.Modules.Warehouse.Application.UseCases;
 
 namespace ModularShop.Modules.Warehouse.Infrastructure.IntegrationEventHandlers;
 

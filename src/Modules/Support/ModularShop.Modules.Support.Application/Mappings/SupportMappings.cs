@@ -1,6 +1,7 @@
+using ModularShop.Modules.Support.Application.Dtos;
 using ModularShop.Modules.Support.Domain;
 
-namespace ModularShop.Modules.Support.Application;
+namespace ModularShop.Modules.Support.Application.Mappings;
 
 internal static class SupportMappings
 {

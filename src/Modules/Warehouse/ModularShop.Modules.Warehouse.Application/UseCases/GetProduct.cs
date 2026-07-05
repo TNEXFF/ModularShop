@@ -1,8 +1,9 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Warehouse.Application.Dtos;
 using ModularShop.Modules.Warehouse.Domain;
 
-namespace ModularShop.Modules.Warehouse.Application;
+namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
 /// <summary>Use case: fetch a single product by id.</summary>
 public sealed class GetProduct

@@ -3,7 +3,7 @@ using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Warehouse.Domain;
 
-namespace ModularShop.Modules.Warehouse.Application;
+namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
 /// <summary>Input to <see cref="DecrementStock"/>: how many units of a product left stock.</summary>
 public sealed record ProductStockChange(Guid ProductId, int Quantity);

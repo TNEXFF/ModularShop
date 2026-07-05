@@ -1,9 +1,11 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Shipping.Application.Dtos;
+using ModularShop.Modules.Shipping.Application.Mappings;
 using ModularShop.Modules.Shipping.Domain;
 
-namespace ModularShop.Modules.Shipping.Application;
+namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: advance a shipment from Pending to Shipped (assigns carrier + tracking number).</summary>
 public sealed class ShipShipment

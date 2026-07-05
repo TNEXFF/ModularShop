@@ -1,9 +1,11 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Support.Application.Dtos;
+using ModularShop.Modules.Support.Application.Mappings;
 using ModularShop.Modules.Support.Domain;
 
-namespace ModularShop.Modules.Support.Application;
+namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>Use case: move a ticket to a new status (Open / Pending / Resolved / Closed).</summary>
 public sealed class ChangeTicketStatus

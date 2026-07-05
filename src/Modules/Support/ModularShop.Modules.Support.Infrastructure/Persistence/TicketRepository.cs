@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ModularShop.Kernel.Infrastructure.Persistence.Repositories;
 using ModularShop.Modules.Support.Domain;
+using ModularShop.Modules.Support.Domain.Repositories;
 
 namespace ModularShop.Modules.Support.Infrastructure.Persistence;
 

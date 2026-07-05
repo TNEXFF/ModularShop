@@ -1,3 +1,4 @@
+using ModularShop.Modules.Warehouse.Application.Dtos;
 using ModularShop.Modules.Warehouse.Domain;
 
 namespace ModularShop.Modules.Warehouse.Application;

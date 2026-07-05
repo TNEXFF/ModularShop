@@ -1,3 +1,5 @@
+using ModularShop.Modules.Support.Domain.Repositories;
+
 namespace ModularShop.Modules.Support.Domain;
 
 /// <summary>

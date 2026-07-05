@@ -1,8 +1,10 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Sales.Application.Dtos;
+using ModularShop.Modules.Sales.Application.Mappings;
 
-namespace ModularShop.Modules.Sales.Application;
+namespace ModularShop.Modules.Sales.Application.UseCases;
 
 /// <summary>
 /// Use case: list customers (ordered by name). <see cref="Customer"/> is a shared kernel entity, so Sales

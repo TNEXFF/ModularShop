@@ -1,8 +1,10 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Sales.Application.Dtos;
+using ModularShop.Modules.Sales.Application.Mappings;
 using ModularShop.Modules.Sales.Domain;
 
-namespace ModularShop.Modules.Sales.Application;
+namespace ModularShop.Modules.Sales.Application.UseCases;
 
 /// <summary>Use case: fetch a single order (with its lines) by id.</summary>
 public sealed class GetOrder

@@ -1,6 +1,6 @@
 using ModularShop.Kernel.Domain.Repositories;
 
-namespace ModularShop.Modules.Support.Domain;
+namespace ModularShop.Modules.Support.Domain.Repositories;
 
 /// <summary>
 /// The Support module's <b>specific</b> repository. It extends the generic <see cref="IRepository{T}"/>

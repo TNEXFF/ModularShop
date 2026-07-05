@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Persistence;
-using ModularShop.Modules.Shipping.Application;
+using ModularShop.Modules.Shipping.Application.UseCases;
 using ModularShop.Modules.Shipping.Domain;
 using ModularShop.Modules.Shipping.Infrastructure.Persistence;
 

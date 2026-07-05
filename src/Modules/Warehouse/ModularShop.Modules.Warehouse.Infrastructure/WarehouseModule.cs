@@ -5,6 +5,7 @@ using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Modules.Warehouse.Application;
+using ModularShop.Modules.Warehouse.Application.UseCases;
 using ModularShop.Modules.Warehouse.Contracts;
 using ModularShop.Modules.Warehouse.Domain;
 using ModularShop.Modules.Warehouse.Infrastructure.Persistence;

@@ -4,8 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Persistence;
-using ModularShop.Modules.Support.Application;
+using ModularShop.Modules.Support.Application.UseCases;
 using ModularShop.Modules.Support.Domain;
+using ModularShop.Modules.Support.Domain.Repositories;
 using ModularShop.Modules.Support.Infrastructure.Persistence;
 
 namespace ModularShop.Modules.Support.Infrastructure;

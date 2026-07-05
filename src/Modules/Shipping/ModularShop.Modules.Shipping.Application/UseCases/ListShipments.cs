@@ -1,8 +1,10 @@
 using Ardalis.Result;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Shipping.Application.Dtos;
+using ModularShop.Modules.Shipping.Application.Mappings;
 using ModularShop.Modules.Shipping.Domain;
 
-namespace ModularShop.Modules.Shipping.Application;
+namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: list all shipments (most recent first), each with its items.</summary>
 public sealed class ListShipments

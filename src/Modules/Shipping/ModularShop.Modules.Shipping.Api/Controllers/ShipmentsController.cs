@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ModularShop.Kernel.Web;
-using ModularShop.Modules.Shipping.Application;
+using ModularShop.Modules.Shipping.Application.Dtos;
+using ModularShop.Modules.Shipping.Application.UseCases;
 
 namespace ModularShop.Modules.Shipping.Api.Controllers;
 

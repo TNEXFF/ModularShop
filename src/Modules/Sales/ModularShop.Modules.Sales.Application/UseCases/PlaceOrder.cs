@@ -5,11 +5,13 @@ using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Domain.Repositories;
+using ModularShop.Modules.Sales.Application.Dtos;
+using ModularShop.Modules.Sales.Application.Mappings;
 using ModularShop.Modules.Sales.Contracts;
 using ModularShop.Modules.Sales.Domain;
 using ModularShop.Modules.Warehouse.Contracts;
 
-namespace ModularShop.Modules.Sales.Application;
+namespace ModularShop.Modules.Sales.Application.UseCases;
 
 /// <summary>
 /// The heart of the demo. Placing an order uses BOTH inter-module communication styles:

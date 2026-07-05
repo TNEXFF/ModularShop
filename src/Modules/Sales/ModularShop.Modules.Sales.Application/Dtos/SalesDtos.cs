@@ -1,4 +1,4 @@
-namespace ModularShop.Modules.Sales.Application;
+namespace ModularShop.Modules.Sales.Application.Dtos;
 
 public sealed record CustomerDto(Guid Id, string Name, string Email);
 

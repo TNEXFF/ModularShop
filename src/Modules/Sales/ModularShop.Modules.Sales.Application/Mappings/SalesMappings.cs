@@ -1,7 +1,8 @@
 using ModularShop.Kernel.Domain;
+using ModularShop.Modules.Sales.Application.Dtos;
 using ModularShop.Modules.Sales.Domain;
 
-namespace ModularShop.Modules.Sales.Application;
+namespace ModularShop.Modules.Sales.Application.Mappings;
 
 internal static class SalesMappings
 {

@@ -1,7 +1,9 @@
 using Ardalis.Result;
-using ModularShop.Modules.Support.Domain;
+using ModularShop.Modules.Support.Application.Dtos;
+using ModularShop.Modules.Support.Application.Mappings;
+using ModularShop.Modules.Support.Domain.Repositories;
 
-namespace ModularShop.Modules.Support.Application;
+namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>
 /// Use case: list all support tickets (most recently opened first). It uses the module's SPECIFIC
