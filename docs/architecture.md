@@ -94,11 +94,14 @@ MediatR publish)**.
 > `Kernel.Domain`) and `IUnitOfWork` (in `Kernel.Application`) — whose implementations live in
 > `Kernel.Infrastructure`. Because Option B has one host context, a single open‑generic `Repository<T>`
 > over it serves **every** module's entities; a module adds a **specific** repository only where the
-> generic one falls short — Support's `ITicketRepository.ListSummariesAsync` projects a message *count*
-> in the database (a plain‑LINQ correlated sub‑query) instead of loading every message body. Reads are
+> generic one falls short. Support's `ITicketSummaryQuery.ListAsync` — NOT a repository — projects a message
+> *count* in the database (a plain‑LINQ correlated sub‑query) instead of loading every message body. Reads are
 > materialised and async (with typed, compile‑time‑safe includes), so the Application layer never touches
 > EF Core's `IQueryable`. `SaveChanges` is the `IUnitOfWork`'s job, not the repository's, so a use case owns
-> its transaction boundary. `Ardalis.Specification` was removed (it isn't needed); `Ardalis.Result` stays.
+> its transaction boundary. **Repositories only ever return entities** — a read shape that isn't an entity
+> (e.g. Support's ticket list, a header‑plus‑message‑count projection) is a separate, dedicated read‑only
+> query object (`ITicketSummaryQuery`), not a repository method; the use case maps its result to the
+> API‑facing DTO. `Ardalis.Specification` was removed (it isn't needed); `Ardalis.Result` stays.
 
 ---
 

@@ -34,7 +34,7 @@ looks the way it does.
 | .NET SDK | `dotnet` in this WSL shell is a wrapper that invokes the **Windows .NET 10 SDK** (`win-x64`). | Use it as‑is. The backend builds/runs as a Windows process, which is exactly how the user runs it in Visual Studio. |
 | EF tooling | `dotnet ef` 10.0.9 works. | Migrations are created with the **official tool** (satisfies the constraint). `migrations add` needs only the model, not a live DB. |
 | Database | **SQL Server 2022 Developer** is installed on Windows (default instance). TCP/IP is **disabled**, but a *Windows* process reaches it over **shared memory** via `Server=localhost`. `CREATE`/`DROP DATABASE` verified. | Use `Server=localhost;…;Trusted_Connection=True;TrustServerCertificate=True`. No Docker, no TCP changes required. |
-| Node / pnpm | Node 20 + a Linux‑native **pnpm 9** (installed via `npm i -g pnpm@9`; the pre‑existing pnpm 11 required Node ≥22 and was broken). | Frontend uses pnpm 9 + Vite. |
+| Node / pnpm | Node 20 + a Linux‑native **pnpm 9** (installed via `npm i -g pnpm@9`; the pre‑existing pnpm 11 required Node ≥22 and was broken). | Frontend uses pnpm 9 + Vite. **Superseded by D22:** the toolchain was later bumped to **Node 24 / pnpm 11** — see D22; that is the current version (verified `node`/`pnpm` on the build machine). |
 
 **Why this matters:** because the backend runs as a Windows process, it can talk to the local SQL
 Server *without* enabling TCP or using Docker — so the full order→shipment flow is genuinely
@@ -467,6 +467,9 @@ longer references EF Core.
   projects a message **count** in the database (plain-LINQ correlated sub-query, no raw SQL) instead of
   loading every message body — the generic repository would be both inefficient and the wrong shape for the
   ticket list. Sales / Warehouse / Shipping use only the generic repository; that contrast *is* the lesson.
+  **Superseded by D38:** a repository returning a projection instead of an entity was itself the wrong
+  shape — `ITicketRepository` is gone; the count-projection query moved to a dedicated, non-repository query
+  object.
 - **Reasoning:** dropping the specifications was right, but deleting the repository *and* pulling EF Core into
   Application was too large a break with Clean Architecture for a teaching reference. A thin repository is a
   recognisable seam, mirrors Platform, and — with one host context — costs almost nothing.
@@ -546,4 +549,34 @@ regenerated.
   elsewhere.
 - **Reasoning:** hygiene and correctness items from the inspection, none altering the architecture.
 
-_Last updated: 2026‑07‑03 (inspection round)._
+---
+
+## 9. Repositories return entities, not projections (2026‑07‑06)
+
+### D38 — `ITicketRepository.ListSummariesAsync` replaced by a dedicated `ITicketSummaryQuery` (supersedes part of D30)
+- **Choice:** repositories now return **only domain entities** (or nothing). Support's ticket-list method —
+  which returned `TicketSummary`, a header-plus-message-count *projection*, not the `Ticket` entity — was
+  removed from `ITicketRepository`. `ITicketRepository` and its `TicketRepository` implementation are
+  deleted entirely (once the projection method left, the interface added nothing over the generic
+  `IRepository<Ticket>`). The projection query moved to a new, explicitly non-repository abstraction,
+  `ITicketSummaryQuery` (`Support.Application/Queries`), implemented in Infrastructure
+  (`TicketSummaryQuery`, querying the base `DbContext` directly) and registered in DI in its place. `Ticket-
+  Summary` moved out of `Support.Domain` (it is a query read-model, not a domain concept) into
+  `Support.Application/Queries` alongside the interface that produces it. `ListTickets` now injects
+  `ITicketSummaryQuery` and still does the `TicketSummary` → `TicketListItemDto` mapping itself — that part
+  was already correct and is unchanged.
+- **Reasoning:** a repository's job is to reconstitute aggregates for the domain to operate on; a shape shows
+  up because a specific *view* needs it, which is exactly the concern a repository should not own. Community
+  guidance is consistent on this (DDD/Clean Architecture write‑ups from Vaughn Vernon, Ardalis, Khalil
+  Stemmler, and others converge on "repositories return entities; presentation/read shapes are mapped
+  outside the repository"). Folding `ListSummariesAsync` into `ITicketRepository` mixed those two concerns:
+  the repository looked like it dealt in `Ticket`s (via `IRepository<Ticket>`) but one method actually
+  handed back something else. A separate query object keeps the repository's contract honest and keeps the
+  efficient count-projection (no raw SQL, still a plain-LINQ correlated sub-query) exactly where it was.
+- **Cost / alternatives:** widening `IRepository<T>`/`IReadRepository<T>` with a projection-returning method
+  was rejected — it would legitimise "repository returns whatever a caller needs," undermining the one rule
+  worth keeping. Reconstituting full `Ticket` aggregates (with all `Messages`) just to count them in memory
+  was rejected on the original efficiency grounds (D30). No schema or DTO-contract change: `TicketListItemDto`
+  (the API shape) is untouched, so the frontend needed no changes.
+
+_Last updated: 2026‑07‑06 (repository/entity-boundary fix)._

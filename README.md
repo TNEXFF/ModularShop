@@ -123,13 +123,15 @@ except `register`/`login` require the auth cookie. Browse them at **`/swagger`**
 | **Microsoft.AspNetCore.Identity.EntityFrameworkCore** `10.0.9` | Kernel.Infrastructure | Users/roles for authentication — a kernel concern, stored in the one host context. |
 | **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure | The single host context, the generic `Repository<T>`, and `UnitOfWork`. The Application layer stays EF‑free — use cases depend on the repository abstractions instead. (The host also references `EntityFrameworkCore.Design` for migration tooling.) |
 | **Ardalis.Result** `10.1.0` | Application, Kernel.Web | Result type every use case returns (`Success`/`NotFound`/`Invalid`), mapped to HTTP + `ApiResponse`. |
-| **MediatR** `14.1.0` (+ **MediatR.Contracts** `2.0.1`) | Infrastructure / Application / Server / `Sales.Contracts` | The in‑process integration‑event bus. `OrderPlaced` is an `INotification`. Community licence is free for education; key optional via `MediatR:LicenseKey`. |
+| **MediatR** `14.2.0` (+ **MediatR.Contracts** `2.0.1`) | Infrastructure / Application / Server / `Sales.Contracts` | The in‑process integration‑event bus. `OrderPlaced` is an `INotification`. Community licence is free for education; key optional via `MediatR:LicenseKey`. |
 | **Swashbuckle.AspNetCore** `10.2.3` | Server | Swagger / OpenAPI UI at `/swagger`. |
 
 `Ardalis.Specification` was **removed** and replaced by our **own** repositories — a generic
 `IReadRepository<T>`/`IRepository<T>` + `IUnitOfWork` (modelled on the Platform / Social‑Media‑Platform
-kernels), plus a specific `ITicketRepository` where the generic one isn't enough. The Application layer no
-longer references EF Core, so Clean Architecture holds. `Ardalis.Result` stays.
+kernels), plus a specific repository where the generic one isn't enough — always returning entities. A
+non‑entity read shape (Support's ticket‑list count projection) is a dedicated read‑only query object
+(`ITicketSummaryQuery`), not a repository. The Application layer no longer references EF Core, so Clean
+Architecture holds. `Ardalis.Result` stays.
 
 NuGet versions are managed centrally in **`Directory.Packages.props`** (central package management), so all
 projects reference each package by name and share one consistent set of versions.
