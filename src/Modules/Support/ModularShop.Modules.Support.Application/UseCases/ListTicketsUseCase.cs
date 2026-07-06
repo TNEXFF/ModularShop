@@ -11,11 +11,11 @@ namespace ModularShop.Modules.Support.Application.UseCases;
 /// projection the repository (which only returns <c>Ticket</c> entities) has no business producing. The
 /// mapping from the query's read model to the API-facing <see cref="TicketListItemDto"/> happens here.
 /// </summary>
-public sealed class ListTickets
+public sealed class ListTicketsUseCase : UseCase
 {
     private readonly ITicketSummaryQuery _query;
 
-    public ListTickets(ITicketSummaryQuery query) => _query = query;
+    public ListTicketsUseCase(ITicketSummaryQuery query) => _query = query;
 
     public async Task<Result<IReadOnlyList<TicketListItemDto>>> ExecuteAsync(CancellationToken ct)
     {

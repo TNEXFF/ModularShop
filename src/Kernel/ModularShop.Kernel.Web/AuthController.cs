@@ -85,4 +85,4 @@ public sealed record RegisterRequest(string Email, string Password, string? Disp
 
 public sealed record LoginRequest(string Email, string Password);
 
-public sealed record AuthUser(string Id, string Email, string DisplayName, string[] Roles);
+public sealed record AuthUser(Guid Id, string Email, string DisplayName, string[] Roles);

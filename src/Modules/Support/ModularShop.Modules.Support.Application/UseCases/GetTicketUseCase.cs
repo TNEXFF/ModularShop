@@ -7,11 +7,11 @@ using ModularShop.Modules.Support.Domain;
 namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>Use case: fetch a single ticket with its full message thread.</summary>
-public sealed class GetTicket
+public sealed class GetTicketUseCase : UseCase
 {
     private readonly IReadRepository<Ticket> _tickets;
 
-    public GetTicket(IReadRepository<Ticket> tickets) => _tickets = tickets;
+    public GetTicketUseCase(IReadRepository<Ticket> tickets) => _tickets = tickets;
 
     public async Task<Result<TicketDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {

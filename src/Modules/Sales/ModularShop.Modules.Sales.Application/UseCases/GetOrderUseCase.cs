@@ -7,11 +7,11 @@ using ModularShop.Modules.Sales.Domain;
 namespace ModularShop.Modules.Sales.Application.UseCases;
 
 /// <summary>Use case: fetch a single order (with its lines) by id.</summary>
-public sealed class GetOrder
+public sealed class GetOrderUseCase : UseCase
 {
     private readonly IReadRepository<Order> _orders;
 
-    public GetOrder(IReadRepository<Order> orders) => _orders = orders;
+    public GetOrderUseCase(IReadRepository<Order> orders) => _orders = orders;
 
     public async Task<Result<OrderDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {

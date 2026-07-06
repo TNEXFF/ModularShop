@@ -14,29 +14,22 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="MediatR" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 
-  <!-- The host references the kernel and every module's Infrastructure (for IModule + the MediatR
-       handler assemblies) and Api (for the controllers, registered as ApplicationParts). It is the
-       ONLY project that knows the full set of modules; modules never reference the host or each
-       other's implementations. -->
+  <!-- The host references the kernel and every module's Infrastructure. Each module IS its own IModule and
+       brings its own controllers (its Infrastructure references its Api project), which MVC discovers
+       automatically — so the host lists no Api projects and contains no module-specific wiring. It is the
+       ONLY project that knows the full set of modules; modules never reference the host or each other's
+       implementations. -->
   <ItemGroup>
     <ProjectReference Include="..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
     <ProjectReference Include="..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
 
     <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Api\ModularShop.Modules.Sales.Api.csproj" />
-
     <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Api\ModularShop.Modules.Warehouse.Api.csproj" />
-
     <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Api\ModularShop.Modules.Shipping.Api.csproj" />
-
     <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Infrastructure\ModularShop.Modules.Support.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Api\ModularShop.Modules.Support.Api.csproj" />
   </ItemGroup>
 
 </Project>

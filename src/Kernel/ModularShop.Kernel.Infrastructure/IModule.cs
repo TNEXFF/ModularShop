@@ -4,20 +4,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ModularShop.Kernel.Infrastructure;
 
 /// <summary>
-/// A module's self-registration contract, implemented in each module's Infrastructure layer. It
-/// lets a module register its own services, DbContext, use cases, event handlers and initializer.
-/// The host (composition root) holds the list of modules and calls <see cref="Register"/> on each;
-/// the host itself contains no business logic.
-/// <para>
-/// Note there is no <c>MapEndpoints</c>: HTTP endpoints are now MVC controllers living in each
-/// module's Api project, which the host registers as ASP.NET Core <c>ApplicationPart</c>s.
-/// </para>
+/// A module's self-registration contract. Each module — <b>including the kernel</b>, which is just a
+/// special module — implements this to register ALL of its own parts (services, use cases, controllers,
+/// event bus, seeders) and to declare the <see cref="ContextType"/> it contributes to the single host
+/// model. The host (composition root) holds the list of modules, calls <see cref="Register"/> on each,
+/// and composes their <see cref="ContextType"/>s into one runtime context — it contains no module logic
+/// of its own.
 /// </summary>
 public interface IModule
 {
     /// <summary>Human-readable module name (used in logs / diagnostics).</summary>
     string Name { get; }
 
-    /// <summary>Register the module's own services, DbContext, use cases, handlers and initializer.</summary>
+    /// <summary>
+    /// The module's DbContext type. It declares the module's entities and configures them (and their
+    /// schema) in its own <c>OnModelCreating</c>; the host instantiates it purely to harvest that model
+    /// (see <c>IModelContributor</c> / <c>ModuleDbContext</c>).
+    /// </summary>
+    Type ContextType { get; }
+
+    /// <summary>Register everything the module owns: its services, use cases, controllers, event handlers and initializer.</summary>
     void Register(IServiceCollection services, IConfiguration configuration);
 }

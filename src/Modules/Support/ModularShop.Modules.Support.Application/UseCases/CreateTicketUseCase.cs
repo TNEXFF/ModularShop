@@ -15,20 +15,20 @@ namespace ModularShop.Modules.Support.Application.UseCases;
 /// kernel <see cref="Customer"/> (read through the generic repository) and stamps the ticket with the
 /// authenticated Identity user from the kernel's <see cref="ICurrentUser"/>.
 /// </summary>
-public sealed class CreateTicket
+public sealed class CreateTicketUseCase : UseCase
 {
     private readonly IReadRepository<Customer> _customers;
     private readonly IRepository<Ticket> _tickets;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
-    private readonly ILogger<CreateTicket> _logger;
+    private readonly ILogger<CreateTicketUseCase> _logger;
 
-    public CreateTicket(
+    public CreateTicketUseCase(
         IReadRepository<Customer> customers,
         IRepository<Ticket> tickets,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
-        ILogger<CreateTicket> logger)
+        ILogger<CreateTicketUseCase> logger)
     {
         _customers = customers;
         _tickets = tickets;
@@ -47,7 +47,6 @@ public sealed class CreateTicket
             return Result<TicketDto>.NotFound($"Customer {request.CustomerId} was not found.");
 
         var ticket = new Ticket(
-            Guid.NewGuid(),
             request.Subject.Trim(),
             request.Description?.Trim() ?? string.Empty,
             customer.Id,

@@ -12,16 +12,16 @@ namespace ModularShop.Modules.Shipping.Api.Controllers;
 [Route("api/shipments")]
 public sealed class ShipmentsController : ApiControllerBase
 {
-    private readonly ListShipments _listShipments;
-    private readonly GetShipment _getShipment;
-    private readonly ShipShipment _shipShipment;
-    private readonly DeliverShipment _deliverShipment;
+    private readonly ListShipmentsUseCase _listShipments;
+    private readonly GetShipmentUseCase _getShipment;
+    private readonly ShipShipmentUseCase _shipShipment;
+    private readonly DeliverShipmentUseCase _deliverShipment;
 
     public ShipmentsController(
-        ListShipments listShipments,
-        GetShipment getShipment,
-        ShipShipment shipShipment,
-        DeliverShipment deliverShipment)
+        ListShipmentsUseCase listShipments,
+        GetShipmentUseCase getShipment,
+        ShipShipmentUseCase shipShipment,
+        DeliverShipmentUseCase deliverShipment)
     {
         _listShipments = listShipments;
         _getShipment = getShipment;

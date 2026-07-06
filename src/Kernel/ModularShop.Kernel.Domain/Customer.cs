@@ -13,7 +13,7 @@ public sealed class Customer : Entity
 
     private Customer() { } // EF
 
-    public Customer(Guid id, string name, string email) : base(id)
+    public Customer(string name, string email, Guid id = default) : base(id)
     {
         Name = name;
         Email = email;

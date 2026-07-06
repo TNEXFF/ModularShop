@@ -12,11 +12,11 @@ namespace ModularShop.Modules.Sales.Api.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController : ApiControllerBase
 {
-    private readonly GetOrders _getOrders;
-    private readonly GetOrder _getOrder;
-    private readonly PlaceOrder _placeOrder;
+    private readonly GetOrdersUseCase _getOrders;
+    private readonly GetOrderUseCase _getOrder;
+    private readonly PlaceOrderUseCase _placeOrder;
 
-    public OrdersController(GetOrders getOrders, GetOrder getOrder, PlaceOrder placeOrder)
+    public OrdersController(GetOrdersUseCase getOrders, GetOrderUseCase getOrder, PlaceOrderUseCase placeOrder)
     {
         _getOrders = getOrders;
         _getOrder = getOrder;

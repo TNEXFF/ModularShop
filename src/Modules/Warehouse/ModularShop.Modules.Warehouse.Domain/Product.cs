@@ -22,8 +22,8 @@ public sealed class Product : Entity
 
     private Product() { } // EF
 
-    public Product(Guid id, string sku, string name, string description, string category, decimal price,
-        int stockQuantity, string currencyCode = "USD")
+    public Product(string sku, string name, string description, string category, decimal price,
+        int stockQuantity, string currencyCode = "USD", Guid id = default)
         : base(id)
     {
         Sku = sku;

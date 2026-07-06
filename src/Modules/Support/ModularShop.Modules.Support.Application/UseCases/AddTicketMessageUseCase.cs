@@ -9,13 +9,13 @@ using ModularShop.Modules.Support.Domain;
 namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>Use case: add a message to a ticket's thread, authored by the current user.</summary>
-public sealed class AddTicketMessage
+public sealed class AddTicketMessageUseCase : UseCase
 {
     private readonly IReadRepository<Ticket> _tickets;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
 
-    public AddTicketMessage(IReadRepository<Ticket> tickets, IUnitOfWork unitOfWork, ICurrentUser currentUser)
+    public AddTicketMessageUseCase(IReadRepository<Ticket> tickets, IUnitOfWork unitOfWork, ICurrentUser currentUser)
     {
         _tickets = tickets;
         _unitOfWork = unitOfWork;

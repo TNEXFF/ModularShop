@@ -8,12 +8,12 @@ using ModularShop.Modules.Support.Domain;
 namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>Use case: move a ticket to a new status (Open / Pending / Resolved / Closed).</summary>
-public sealed class ChangeTicketStatus
+public sealed class ChangeTicketStatusUseCase : UseCase
 {
     private readonly IReadRepository<Ticket> _tickets;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ChangeTicketStatus(IReadRepository<Ticket> tickets, IUnitOfWork unitOfWork)
+    public ChangeTicketStatusUseCase(IReadRepository<Ticket> tickets, IUnitOfWork unitOfWork)
     {
         _tickets = tickets;
         _unitOfWork = unitOfWork;

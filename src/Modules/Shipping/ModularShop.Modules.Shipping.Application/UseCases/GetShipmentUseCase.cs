@@ -7,11 +7,11 @@ using ModularShop.Modules.Shipping.Domain;
 namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: fetch a single shipment (with its items) by id.</summary>
-public sealed class GetShipment
+public sealed class GetShipmentUseCase : UseCase
 {
     private readonly IReadRepository<Shipment> _shipments;
 
-    public GetShipment(IReadRepository<Shipment> shipments) => _shipments = shipments;
+    public GetShipmentUseCase(IReadRepository<Shipment> shipments) => _shipments = shipments;
 
     public async Task<Result<ShipmentDto>> ExecuteAsync(Guid id, CancellationToken ct)
     {

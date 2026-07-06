@@ -13,18 +13,18 @@ namespace ModularShop.Modules.Support.Api.Controllers;
 [Route("api/tickets")]
 public sealed class TicketsController : ApiControllerBase
 {
-    private readonly ListTickets _listTickets;
-    private readonly GetTicket _getTicket;
-    private readonly CreateTicket _createTicket;
-    private readonly AddTicketMessage _addTicketMessage;
-    private readonly ChangeTicketStatus _changeTicketStatus;
+    private readonly ListTicketsUseCase _listTickets;
+    private readonly GetTicketUseCase _getTicket;
+    private readonly CreateTicketUseCase _createTicket;
+    private readonly AddTicketMessageUseCase _addTicketMessage;
+    private readonly ChangeTicketStatusUseCase _changeTicketStatus;
 
     public TicketsController(
-        ListTickets listTickets,
-        GetTicket getTicket,
-        CreateTicket createTicket,
-        AddTicketMessage addTicketMessage,
-        ChangeTicketStatus changeTicketStatus)
+        ListTicketsUseCase listTickets,
+        GetTicketUseCase getTicket,
+        CreateTicketUseCase createTicket,
+        AddTicketMessageUseCase addTicketMessage,
+        ChangeTicketStatusUseCase changeTicketStatus)
     {
         _listTickets = listTickets;
         _getTicket = getTicket;

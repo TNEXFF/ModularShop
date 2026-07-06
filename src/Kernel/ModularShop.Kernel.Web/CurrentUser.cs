@@ -18,7 +18,8 @@ internal sealed class CurrentUser : ICurrentUser
 
     private ClaimsPrincipal? Principal => _accessor.HttpContext?.User;
 
-    public string UserId => Principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
+    public Guid UserId =>
+        Guid.TryParse(Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
 
     public string UserName =>
         Principal?.Identity?.Name

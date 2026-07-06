@@ -6,8 +6,9 @@ namespace ModularShop.Modules.Support.Domain;
 /// A customer-support ticket (aggregate root), owned by the Support module. Support is a <b>genuinely
 /// unrelated</b> module: it plays no part in the order → stock → ship flow and depends on no other
 /// module. It does, however, reference the <b>shared kernel</b> <see cref="Customer"/> (a ticket is
-/// raised for a customer) and records the Identity user who created it — showing that an independent
-/// module still shares the kernel's cross-cutting concerns.
+/// raised for a customer) and records the Identity user who created it (<see cref="CreatedByUserId"/>,
+/// a Guid matching the Identity key) — showing that an independent module still shares the kernel's
+/// cross-cutting concerns.
 /// </summary>
 public sealed class Ticket : Entity
 {
@@ -18,7 +19,7 @@ public sealed class Ticket : Entity
     public Guid CustomerId { get; private set; }
     public string CustomerName { get; private set; } = default!;
     public TicketStatus Status { get; private set; }
-    public string CreatedByUserId { get; private set; } = default!;
+    public Guid CreatedByUserId { get; private set; }
     public string CreatedByName { get; private set; } = default!;
     public DateTime CreatedOnUtc { get; private set; }
     public DateTime? ResolvedOnUtc { get; private set; }
@@ -27,8 +28,8 @@ public sealed class Ticket : Entity
 
     private Ticket() { } // EF
 
-    public Ticket(Guid id, string subject, string description, Guid customerId, string customerName,
-        string createdByUserId, string createdByName, DateTime createdOnUtc)
+    public Ticket(string subject, string description, Guid customerId, string customerName,
+        Guid createdByUserId, string createdByName, DateTime createdOnUtc, Guid id = default)
         : base(id)
     {
         Subject = subject;
@@ -45,9 +46,9 @@ public sealed class Ticket : Entity
     /// Adds a message to the thread. <paramref name="sentOnUtc"/> defaults to now for real replies; seeding
     /// passes an explicit past time so a historical conversation reads in the right order.
     /// </summary>
-    public TicketMessage AddMessage(string authorUserId, string authorName, string body, DateTime? sentOnUtc = null)
+    public TicketMessage AddMessage(Guid authorUserId, string authorName, string body, DateTime? sentOnUtc = null)
     {
-        var message = new TicketMessage(Guid.NewGuid(), Id, authorUserId, authorName, body, sentOnUtc ?? DateTime.UtcNow);
+        var message = new TicketMessage(authorUserId, authorName, body, sentOnUtc ?? DateTime.UtcNow);
         _messages.Add(message);
         // A reply from anyone re-opens a resolved/closed ticket into Pending — a small, sensible rule.
         if (Status is TicketStatus.Resolved or TicketStatus.Closed)

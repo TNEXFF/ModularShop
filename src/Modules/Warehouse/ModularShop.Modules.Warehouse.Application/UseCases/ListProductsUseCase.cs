@@ -6,11 +6,11 @@ using ModularShop.Modules.Warehouse.Domain;
 namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
 /// <summary>Use case: return the whole product catalogue (ordered by category, then name).</summary>
-public sealed class ListProducts
+public sealed class ListProductsUseCase : UseCase
 {
     private readonly IReadRepository<Product> _products;
 
-    public ListProducts(IReadRepository<Product> products) => _products = products;
+    public ListProductsUseCase(IReadRepository<Product> products) => _products = products;
 
     public async Task<Result<IReadOnlyList<ProductResponse>>> ExecuteAsync(CancellationToken ct)
     {

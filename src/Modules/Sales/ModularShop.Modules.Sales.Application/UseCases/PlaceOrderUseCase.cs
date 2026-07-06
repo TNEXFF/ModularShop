@@ -26,7 +26,7 @@ namespace ModularShop.Modules.Sales.Application.UseCases;
 /// through the Sales order repository, committing once via the <see cref="IUnitOfWork"/>. It reaches
 /// Warehouse only through its contract — never its tables — and never touches EF Core.
 /// </summary>
-public sealed class PlaceOrder
+public sealed class PlaceOrderUseCase : UseCase
 {
     private readonly IReadRepository<Customer> _customers; // shared kernel entity (read only)
     private readonly IRepository<Order> _orders;           // Sales owns orders (read + write)
@@ -34,16 +34,16 @@ public sealed class PlaceOrder
     private readonly IWarehouseApi _warehouse;             // Warehouse's PUBLIC interface (sync call)
     private readonly IPublisher _publisher;                // MediatR — publishes integration events (async)
     private readonly ICurrentUser _currentUser;            // cross-cutting identity from the kernel
-    private readonly ILogger<PlaceOrder> _logger;
+    private readonly ILogger<PlaceOrderUseCase> _logger;
 
-    public PlaceOrder(
+    public PlaceOrderUseCase(
         IReadRepository<Customer> customers,
         IRepository<Order> orders,
         IUnitOfWork unitOfWork,
         IWarehouseApi warehouse,
         IPublisher publisher,
         ICurrentUser currentUser,
-        ILogger<PlaceOrder> logger)
+        ILogger<PlaceOrderUseCase> logger)
     {
         _customers = customers;
         _orders = orders;
@@ -69,7 +69,7 @@ public sealed class PlaceOrder
         var productIds = request.Lines.Select(l => l.ProductId).Distinct().ToList();
         var products = (await _warehouse.GetProductsAsync(productIds, ct)).ToDictionary(p => p.Id);
 
-        var order = new Order(Guid.NewGuid(), GenerateOrderNumber(), customer.Id, customer.Name,
+        var order = new Order(GenerateOrderNumber(), customer.Id, customer.Name,
             _currentUser.UserName, DateTime.UtcNow);
 
         var errors = new List<ValidationError>();

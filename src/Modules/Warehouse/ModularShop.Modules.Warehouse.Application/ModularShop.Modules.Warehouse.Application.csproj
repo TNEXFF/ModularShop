@@ -20,4 +20,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <!-- Every use case inherits the kernel's UseCase base; a global using makes it available in all files. -->
+  <ItemGroup>
+    <Using Include="ModularShop.Kernel.Application" />
+  </ItemGroup>
+
 </Project>

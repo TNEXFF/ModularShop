@@ -11,6 +11,8 @@
     <ProjectReference Include="..\ModularShop.Modules.Support.Application\ModularShop.Modules.Support.Application.csproj" />
     <ProjectReference Include="..\ModularShop.Modules.Support.Domain\ModularShop.Modules.Support.Domain.csproj" />
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <!-- The module ships its own controllers (discovered by MVC); the host never enumerates them. -->
+    <ProjectReference Include="..\ModularShop.Modules.Support.Api\ModularShop.Modules.Support.Api.csproj" />
   </ItemGroup>
 
 </Project>

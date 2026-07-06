@@ -8,7 +8,7 @@ namespace ModularShop.Kernel.Infrastructure.Identity;
 /// single host context (placed in the <c>kernel</c> schema). Modules never see this type — they depend
 /// on the kernel's <c>ICurrentUser</c> abstraction instead.
 /// </summary>
-public sealed class ApplicationUser : IdentityUser
+public sealed class ApplicationUser : IdentityUser<Guid>
 {
     /// <summary>A friendly name shown in the UI (falls back to the email at registration time).</summary>
     public string DisplayName { get; set; } = default!;

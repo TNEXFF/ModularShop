@@ -1,39 +1,48 @@
 using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Persistence;
 
 namespace ModularShop.Server.Persistence;
 
 /// <summary>
-/// The single runtime DbContext for the whole application — the "host context". It derives from the
-/// kernel's Identity + shared-entities base (<see cref="KernelDbContext"/>), then layers every module's
-/// model on top by asking each registered <see cref="IModuleModel"/> to contribute. This one context
-/// owns the database and the (centralised) migrations; modules only supply blueprints. Every service in
-/// the app resolves the base <c>DbContext</c>, which is aliased to this type in <c>Program.cs</c>.
+/// The single runtime DbContext for the whole application — the "host context". It owns the database and
+/// the (centralised) migrations, but holds NO entities of its own: it composes the model by asking every
+/// registered module — <b>the kernel included</b> — to layer its own context's model onto this one (see
+/// <see cref="IModelContributor"/> / <see cref="ModuleDbContext"/>). Every service in the app resolves the
+/// base <c>DbContext</c>, which is aliased to this type in <c>Program.cs</c>, so one open-generic
+/// repository and the Identity stores all run against this one context.
 /// </summary>
-public sealed class ModularShopDbContext : KernelDbContext
+public sealed class ModularShopDbContext : DbContext
 {
-    /// <summary>Schema for everything the kernel owns (shared entities + all Identity tables).</summary>
-    public const string KernelSchema = "kernel";
+    private readonly IReadOnlyList<IModule> _modules;
 
-    private readonly IReadOnlyList<IModuleModel> _modules;
-
-    public ModularShopDbContext(DbContextOptions<ModularShopDbContext> options, IEnumerable<IModuleModel> modules)
+    public ModularShopDbContext(DbContextOptions<ModularShopDbContext> options, IEnumerable<IModule> modules)
         : base(options)
         => _modules = modules.ToList();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder); // Identity + the shared kernel entities (Customer, Currency)
-
-        // Each module contributes its entities (reflected from its blueprint DbSets) + special config.
+        // Each module contributes its slice of the model. The kernel is first in the list (HostModules):
+        // it sets the default "kernel" schema and owns Identity + the shared entities modules FK to, so
+        // those principals exist before a module adds a cross-schema foreign key to them.
         foreach (var module in _modules)
-            modelBuilder.ApplyModuleModel(module);
+        {
+            var contributor = CreateContributor(module.ContextType);
+            contributor.ApplyModel(modelBuilder);
+            (contributor as IDisposable)?.Dispose();
+        }
+    }
 
-        // Place every table in its owner's schema (modules → their schema; the rest → kernel).
-        modelBuilder.ApplyModuleSchemas(_modules, KernelSchema);
-
-        // Domain entities assign their own Guid keys, so mark them client-assigned (otherwise EF mis-inserts
-        // a new child added to an already-tracked parent). Schema-neutral — see ApplyClientAssignedKeys.
-        modelBuilder.ApplyClientAssignedKeys();
+    /// <summary>
+    /// Instantiates a module's context purely to harvest its model. The context is never connected to a
+    /// database, but it is given a throwaway SqlServer options object (never opened) so that Identity's
+    /// <c>OnModelCreating</c>, which reads store options, has a provider to look at.
+    /// </summary>
+    private static IModelContributor CreateContributor(Type contextType)
+    {
+        var builderType = typeof(DbContextOptionsBuilder<>).MakeGenericType(contextType);
+        var builder = (DbContextOptionsBuilder)Activator.CreateInstance(builderType)!;
+        builder.UseSqlServer("Server=_;Database=_;");
+        return (IModelContributor)Activator.CreateInstance(contextType, builder.Options)!;
     }
 }

@@ -8,12 +8,12 @@ using ModularShop.Modules.Shipping.Domain;
 namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: advance a shipment from Pending to Shipped (assigns carrier + tracking number).</summary>
-public sealed class ShipShipment
+public sealed class ShipShipmentUseCase : UseCase
 {
     private readonly IReadRepository<Shipment> _shipments;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ShipShipment(IReadRepository<Shipment> shipments, IUnitOfWork unitOfWork)
+    public ShipShipmentUseCase(IReadRepository<Shipment> shipments, IUnitOfWork unitOfWork)
     {
         _shipments = shipments;
         _unitOfWork = unitOfWork;

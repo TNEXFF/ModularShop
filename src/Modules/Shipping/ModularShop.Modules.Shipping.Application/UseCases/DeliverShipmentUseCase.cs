@@ -8,12 +8,12 @@ using ModularShop.Modules.Shipping.Domain;
 namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: advance a shipment from Shipped to Delivered.</summary>
-public sealed class DeliverShipment
+public sealed class DeliverShipmentUseCase : UseCase
 {
     private readonly IReadRepository<Shipment> _shipments;
     private readonly IUnitOfWork _unitOfWork;
 
-    public DeliverShipment(IReadRepository<Shipment> shipments, IUnitOfWork unitOfWork)
+    public DeliverShipmentUseCase(IReadRepository<Shipment> shipments, IUnitOfWork unitOfWork)
     {
         _shipments = shipments;
         _unitOfWork = unitOfWork;

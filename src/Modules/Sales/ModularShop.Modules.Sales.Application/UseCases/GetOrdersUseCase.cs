@@ -11,11 +11,11 @@ namespace ModularShop.Modules.Sales.Application.UseCases;
 /// <see cref="IReadRepository{T}"/> — never on EF Core or the DbContext — and lets the repository run the
 /// ordering and the eager-load in the database.
 /// </summary>
-public sealed class GetOrders
+public sealed class GetOrdersUseCase : UseCase
 {
     private readonly IReadRepository<Order> _orders;
 
-    public GetOrders(IReadRepository<Order> orders) => _orders = orders;
+    public GetOrdersUseCase(IReadRepository<Order> orders) => _orders = orders;
 
     public async Task<Result<IReadOnlyList<OrderDto>>> ExecuteAsync(CancellationToken ct)
     {

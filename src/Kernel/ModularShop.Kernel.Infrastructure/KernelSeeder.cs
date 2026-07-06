@@ -108,15 +108,15 @@ public sealed class KernelSeeder : IModuleInitializer
 
     private static IReadOnlyList<Customer> Customers() =>
     [
-        new(C(1),  "Alice Johnson", "alice.johnson@contoso.com"),
-        new(C(2),  "Bob Martinez",  "bob.martinez@contoso.com"),
-        new(C(3),  "Carla Nguyen",  "carla.nguyen@fabrikam.com"),
-        new(C(4),  "David Smith",   "david.smith@fabrikam.com"),
-        new(C(5),  "Emma Wilson",   "emma.wilson@northwind.com"),
-        new(C(6),  "Farah Khan",    "farah.khan@northwind.com"),
-        new(C(7),  "George Brown",  "george.brown@adventure-works.com"),
-        new(C(8),  "Hana Suzuki",   "hana.suzuki@adventure-works.com"),
-        new(C(9),  "Ivan Petrov",   "ivan.petrov@contoso.com"),
-        new(C(10), "Julia Rossi",   "julia.rossi@fabrikam.com"),
+        new("Alice Johnson", "alice.johnson@contoso.com",        id: C(1)),
+        new("Bob Martinez",  "bob.martinez@contoso.com",         id: C(2)),
+        new("Carla Nguyen",  "carla.nguyen@fabrikam.com",        id: C(3)),
+        new("David Smith",   "david.smith@fabrikam.com",         id: C(4)),
+        new("Emma Wilson",   "emma.wilson@northwind.com",        id: C(5)),
+        new("Farah Khan",    "farah.khan@northwind.com",         id: C(6)),
+        new("George Brown",  "george.brown@adventure-works.com", id: C(7)),
+        new("Hana Suzuki",   "hana.suzuki@adventure-works.com",  id: C(8)),
+        new("Ivan Petrov",   "ivan.petrov@contoso.com",          id: C(9)),
+        new("Julia Rossi",   "julia.rossi@fabrikam.com",         id: C(10)),
     ];
 }

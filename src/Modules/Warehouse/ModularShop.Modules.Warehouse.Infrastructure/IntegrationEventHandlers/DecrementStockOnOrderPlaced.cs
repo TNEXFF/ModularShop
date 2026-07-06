@@ -7,14 +7,14 @@ namespace ModularShop.Modules.Warehouse.Infrastructure.IntegrationEventHandlers;
 /// <summary>
 /// Reacts to the Sales module's <see cref="OrderPlaced"/> integration event (a MediatR
 /// <c>INotification</c>) by decrementing stock for each ordered product. The handler is a thin
-/// adapter: it translates the event into the Warehouse's <see cref="DecrementStock"/> use case.
+/// adapter: it translates the event into the Warehouse's <see cref="DecrementStockUseCase"/> use case.
 /// MediatR discovers this handler when the host scans the Warehouse Infrastructure assembly.
 /// </summary>
 internal sealed class DecrementStockOnOrderPlaced : INotificationHandler<OrderPlaced>
 {
-    private readonly DecrementStock _decrementStock;
+    private readonly DecrementStockUseCase _decrementStock;
 
-    public DecrementStockOnOrderPlaced(DecrementStock decrementStock) => _decrementStock = decrementStock;
+    public DecrementStockOnOrderPlaced(DecrementStockUseCase decrementStock) => _decrementStock = decrementStock;
 
     public Task Handle(OrderPlaced notification, CancellationToken cancellationToken)
     {

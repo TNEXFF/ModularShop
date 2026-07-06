@@ -1,57 +1,41 @@
-using Microsoft.EntityFrameworkCore;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Infrastructure;
-using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Modules.Warehouse.Application;
 using ModularShop.Modules.Warehouse.Application.UseCases;
 using ModularShop.Modules.Warehouse.Contracts;
-using ModularShop.Modules.Warehouse.Domain;
 using ModularShop.Modules.Warehouse.Infrastructure.Persistence;
 
 namespace ModularShop.Modules.Warehouse.Infrastructure;
 
 /// <summary>
-/// The Warehouse module's composition root — both <see cref="IModule"/> (its own services) and
-/// <see cref="IModuleModel"/> (its slice of the single host model). The integration-event handler in
-/// this assembly is discovered by MediatR when the host scans each module's Infrastructure assembly.
+/// The Warehouse module's composition root (its <see cref="IModule"/>). It registers its use cases, the
+/// synchronous public API other modules call (<see cref="IWarehouseApi"/>), the MediatR bus its
+/// <c>OrderPlaced</c> handler lives on, and its seeder, and declares the <see cref="WarehouseDbContext"/>.
 /// </summary>
-public sealed class WarehouseModule : IModule, IModuleModel
+public sealed class WarehouseModule : IModule
 {
     public string Name => "Warehouse";
+    public Type ContextType => typeof(WarehouseDbContext);
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
-        // Use cases — invoked by controllers and by the integration-event handler.
-        services.AddScoped<ListProducts>();
-        services.AddScoped<GetProduct>();
-        services.AddScoped<DecrementStock>();
+        services.AddUseCases(typeof(DecrementStockUseCase).Assembly);
 
         // Synchronous public API other modules call (they depend only on IWarehouseApi).
         services.AddScoped<IWarehouseApi, WarehouseApi>();
 
-        // Seeds the product catalogue at startup.
-        services.AddScoped<IModuleInitializer, WarehouseSeeder>();
-    }
-
-    public string Schema => "warehouse";
-    public Type ContextType => typeof(WarehouseDbContext);
-
-    public void Configure(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<Product>(product =>
+        // Warehouse subscribes to OrderPlaced — its INotificationHandler lives in this assembly, so it
+        // registers MediatR over its own assembly.
+        services.AddMediatR(cfg =>
         {
-            product.Property(p => p.Sku).HasMaxLength(32).IsRequired();
-            product.HasIndex(p => p.Sku).IsUnique();
-            product.Property(p => p.Name).HasMaxLength(200).IsRequired();
-            product.Property(p => p.Description).HasMaxLength(1000).IsRequired();
-            product.Property(p => p.Category).HasMaxLength(100).IsRequired();
-            product.Property(p => p.Price).HasPrecision(18, 2);
-            product.Property(p => p.CurrencyCode).HasMaxLength(3).IsRequired();
-
-            // FK to the SHARED kernel Currency (cross-schema: warehouse.Products → kernel.Currencies).
-            product.HasOne<Currency>().WithMany().HasForeignKey(p => p.CurrencyCode).OnDelete(DeleteBehavior.Restrict);
+            var licenseKey = configuration["MediatR:LicenseKey"];
+            if (!string.IsNullOrWhiteSpace(licenseKey))
+                cfg.LicenseKey = licenseKey;
+            cfg.RegisterServicesFromAssembly(typeof(WarehouseModule).Assembly);
         });
+
+        services.AddScoped<IModuleInitializer, WarehouseSeeder>();
     }
 }

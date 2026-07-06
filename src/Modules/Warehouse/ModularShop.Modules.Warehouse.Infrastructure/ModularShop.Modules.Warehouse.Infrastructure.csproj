@@ -13,6 +13,8 @@
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
     <!-- Warehouse reacts to the Sales OrderPlaced event, so it references the Sales public contract. -->
     <ProjectReference Include="..\..\Sales\ModularShop.Modules.Sales.Contracts\ModularShop.Modules.Sales.Contracts.csproj" />
+    <!-- The module ships its own controllers (discovered by MVC); the host never enumerates them. -->
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Api\ModularShop.Modules.Warehouse.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

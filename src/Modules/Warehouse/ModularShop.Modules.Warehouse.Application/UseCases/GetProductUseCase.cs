@@ -6,11 +6,11 @@ using ModularShop.Modules.Warehouse.Domain;
 namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
 /// <summary>Use case: fetch a single product by id.</summary>
-public sealed class GetProduct
+public sealed class GetProductUseCase : UseCase
 {
     private readonly IReadRepository<Product> _products;
 
-    public GetProduct(IReadRepository<Product> products) => _products = products;
+    public GetProductUseCase(IReadRepository<Product> products) => _products = products;
 
     public async Task<Result<ProductResponse>> ExecuteAsync(Guid id, CancellationToken ct)
     {

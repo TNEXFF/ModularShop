@@ -7,11 +7,11 @@ using ModularShop.Modules.Shipping.Domain;
 namespace ModularShop.Modules.Shipping.Application.UseCases;
 
 /// <summary>Use case: list all shipments (most recent first), each with its items.</summary>
-public sealed class ListShipments
+public sealed class ListShipmentsUseCase : UseCase
 {
     private readonly IReadRepository<Shipment> _shipments;
 
-    public ListShipments(IReadRepository<Shipment> shipments) => _shipments = shipments;
+    public ListShipmentsUseCase(IReadRepository<Shipment> shipments) => _shipments = shipments;
 
     public async Task<Result<IReadOnlyList<ShipmentDto>>> ExecuteAsync(CancellationToken ct)
     {

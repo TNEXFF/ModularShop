@@ -2,6 +2,7 @@ using ModularShop.Kernel.Domain;
 
 namespace ModularShop.Modules.Shipping.Domain;
 
+/// <summary><see cref="ShipmentId"/> is set by EF Core from the owning shipment's navigation when the graph is saved.</summary>
 public sealed class ShipmentItem : Entity
 {
     public Guid ShipmentId { get; private set; }
@@ -10,9 +11,8 @@ public sealed class ShipmentItem : Entity
 
     private ShipmentItem() { } // EF
 
-    public ShipmentItem(Guid id, Guid shipmentId, string productName, int quantity) : base(id)
+    public ShipmentItem(string productName, int quantity)
     {
-        ShipmentId = shipmentId;
         ProductName = productName;
         Quantity = quantity;
     }

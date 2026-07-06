@@ -1,16 +1,38 @@
 using Microsoft.EntityFrameworkCore;
+using ModularShop.Kernel.Domain;
+using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Modules.Warehouse.Domain;
 
 namespace ModularShop.Modules.Warehouse.Infrastructure.Persistence;
 
 /// <summary>
-/// The Warehouse module's <b>blueprint</b> DbContext — never instantiated at runtime. Its <c>DbSet</c>
-/// properties declare the entities the module owns; the single host context reflects them to build one
-/// combined model (see <c>IModuleModel</c>).
+/// The Warehouse module's DbContext. It declares the module's entities and configures them — and their
+/// <c>warehouse</c> schema — here. The host instantiates it only to layer this model onto the single host
+/// context (see <see cref="ModuleDbContext"/>); it is never registered or connected at runtime.
 /// </summary>
-internal sealed class WarehouseDbContext : DbContext
+public sealed class WarehouseDbContext : ModuleDbContext
 {
-    public WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : base(options) { }
+    public const string Schema = "warehouse";
+
+    public WarehouseDbContext(DbContextOptions options) : base(options) { }
 
     public DbSet<Product> Products => Set<Product>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Product>(product =>
+        {
+            product.ToTable("Products", Schema);
+            product.Property(p => p.Sku).HasMaxLength(32).IsRequired();
+            product.HasIndex(p => p.Sku).IsUnique();
+            product.Property(p => p.Name).HasMaxLength(200).IsRequired();
+            product.Property(p => p.Description).HasMaxLength(1000).IsRequired();
+            product.Property(p => p.Category).HasMaxLength(100).IsRequired();
+            product.Property(p => p.Price).HasPrecision(18, 2);
+            product.Property(p => p.CurrencyCode).HasMaxLength(3).IsRequired();
+
+            // FK to the SHARED kernel Currency (cross-schema: warehouse.Products → kernel.Currencies).
+            product.HasOne<Currency>().WithMany().HasForeignKey(p => p.CurrencyCode).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
 }

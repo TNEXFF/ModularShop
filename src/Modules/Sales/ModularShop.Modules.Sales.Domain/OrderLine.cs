@@ -7,6 +7,7 @@ namespace ModularShop.Modules.Sales.Domain;
 /// there is deliberately NO foreign key to the Warehouse tables — that would cross a module
 /// boundary. Instead the name and price are <b>snapshotted</b> at order time: the data Sales needs
 /// is copied into Sales' own schema, so the modules stay independent.
+/// <para><see cref="OrderId"/> is set by EF Core from the owning order's navigation when the graph is saved.</para>
 /// </summary>
 public sealed class OrderLine : Entity
 {
@@ -19,10 +20,8 @@ public sealed class OrderLine : Entity
 
     private OrderLine() { } // EF
 
-    public OrderLine(Guid id, Guid orderId, Guid productId, string productName, decimal unitPrice, int quantity)
-        : base(id)
+    public OrderLine(Guid productId, string productName, decimal unitPrice, int quantity)
     {
-        OrderId = orderId;
         ProductId = productId;
         ProductName = productName;
         UnitPrice = unitPrice;

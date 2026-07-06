@@ -5,7 +5,7 @@ using ModularShop.Modules.Warehouse.Domain;
 
 namespace ModularShop.Modules.Warehouse.Application.UseCases;
 
-/// <summary>Input to <see cref="DecrementStock"/>: how many units of a product left stock.</summary>
+/// <summary>Input to <see cref="DecrementStockUseCase"/>: how many units of a product left stock.</summary>
 public sealed record ProductStockChange(Guid ProductId, int Quantity);
 
 /// <summary>
@@ -14,13 +14,13 @@ public sealed record ProductStockChange(Guid ProductId, int Quantity);
 /// Warehouse's own entities — never by another module reaching into these tables. The products are
 /// loaded <b>tracked</b> (by key) so the decrement is observed and persisted when the unit of work commits.
 /// </summary>
-public sealed class DecrementStock
+public sealed class DecrementStockUseCase : UseCase
 {
     private readonly IReadRepository<Product> _products;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<DecrementStock> _logger;
+    private readonly ILogger<DecrementStockUseCase> _logger;
 
-    public DecrementStock(IReadRepository<Product> products, IUnitOfWork unitOfWork, ILogger<DecrementStock> logger)
+    public DecrementStockUseCase(IReadRepository<Product> products, IUnitOfWork unitOfWork, ILogger<DecrementStockUseCase> logger)
     {
         _products = products;
         _unitOfWork = unitOfWork;

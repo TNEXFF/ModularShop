@@ -12,10 +12,10 @@ namespace ModularShop.Modules.Warehouse.Api.Controllers;
 [Route("api/products")]
 public sealed class ProductsController : ApiControllerBase
 {
-    private readonly ListProducts _listProducts;
-    private readonly GetProduct _getProduct;
+    private readonly ListProductsUseCase _listProducts;
+    private readonly GetProductUseCase _getProduct;
 
-    public ProductsController(ListProducts listProducts, GetProduct getProduct)
+    public ProductsController(ListProductsUseCase listProducts, GetProductUseCase getProduct)
     {
         _listProducts = listProducts;
         _getProduct = getProduct;

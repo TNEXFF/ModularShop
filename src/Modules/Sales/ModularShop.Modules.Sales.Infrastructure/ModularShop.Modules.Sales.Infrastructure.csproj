@@ -11,6 +11,14 @@
     <ProjectReference Include="..\ModularShop.Modules.Sales.Application\ModularShop.Modules.Sales.Application.csproj" />
     <ProjectReference Include="..\ModularShop.Modules.Sales.Domain\ModularShop.Modules.Sales.Domain.csproj" />
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <!-- The module's Api (its controllers) is part of the module. Referencing it here means the module
+         ships its own controllers, which MVC discovers automatically — the host never enumerates them. -->
+    <ProjectReference Include="..\ModularShop.Modules.Sales.Api\ModularShop.Modules.Sales.Api.csproj" />
+  </ItemGroup>
+
+  <!-- Sales publishes the OrderPlaced integration event on MediatR (registered in SalesModule). -->
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
   </ItemGroup>
 
 </Project>

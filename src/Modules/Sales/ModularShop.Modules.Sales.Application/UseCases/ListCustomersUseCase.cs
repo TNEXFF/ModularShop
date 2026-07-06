@@ -10,11 +10,11 @@ namespace ModularShop.Modules.Sales.Application.UseCases;
 /// Use case: list customers (ordered by name). <see cref="Customer"/> is a shared kernel entity, so Sales
 /// reads it through the generic repository — the customer list is consistent for every module.
 /// </summary>
-public sealed class ListCustomers
+public sealed class ListCustomersUseCase : UseCase
 {
     private readonly IReadRepository<Customer> _customers;
 
-    public ListCustomers(IReadRepository<Customer> customers) => _customers = customers;
+    public ListCustomersUseCase(IReadRepository<Customer> customers) => _customers = customers;
 
     public async Task<Result<IReadOnlyList<CustomerDto>>> ExecuteAsync(CancellationToken ct)
     {
