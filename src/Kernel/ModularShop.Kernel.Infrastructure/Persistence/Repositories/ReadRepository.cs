@@ -11,9 +11,11 @@ namespace ModularShop.Kernel.Infrastructure.Persistence.Repositories;
 /// <c>Order</c>, <c>Product</c>, <c>Shipment</c>, <c>Ticket</c>, the shared <c>Customer</c>, and so on.
 /// <para>
 /// It is <b>public</b> (not internal) so a module can subclass it in its own Infrastructure assembly to
-/// add a specific repository (see the Support module's <c>TicketRepository</c>). The one query-building
-/// hook, <see cref="Query"/>, is <c>protected</c> so those subclasses can compose freely while the
-/// Application layer only ever sees the materialised <see cref="IReadRepository{T}"/> methods.
+/// add a specific repository — one that still returns entities, just with a module-specific query shape.
+/// (A projection that isn't an entity, e.g. a list-view row with a derived count, belongs in a separate
+/// read-only query object instead — see the Support module's <c>TicketSummaryQuery</c>.) The one
+/// query-building hook, <see cref="Query"/>, is <c>protected</c> so those subclasses can compose freely
+/// while the Application layer only ever sees the materialised <see cref="IReadRepository{T}"/> methods.
 /// </para>
 /// </summary>
 public class ReadRepository<T> : IReadRepository<T> where T : Entity

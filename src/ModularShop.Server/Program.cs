@@ -38,8 +38,8 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbC
 // ── Data access: the generic repositories + unit of work, over the one host context ─────────────
 // A single open-generic Repository<T> serves every module's entities (Option B has one context).
 // Use cases depend on IReadRepository<T> / IRepository<T> (in the Domain) and IUnitOfWork (in the
-// Application) — never on EF Core. A module registers its OWN specific repository only where the
-// generic one falls short (see Support's ITicketRepository).
+// Application) — never on EF Core. Repositories only ever return entities; a module-specific,
+// non-entity read shape (e.g. Support's TicketSummaryQuery) is a separate query object, not a repository.
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

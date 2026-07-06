@@ -1,25 +1,25 @@
 using Ardalis.Result;
 using ModularShop.Modules.Support.Application.Dtos;
 using ModularShop.Modules.Support.Application.Mappings;
-using ModularShop.Modules.Support.Domain.Repositories;
+using ModularShop.Modules.Support.Application.Queries;
 
 namespace ModularShop.Modules.Support.Application.UseCases;
 
 /// <summary>
-/// Use case: list all support tickets (most recently opened first). It uses the module's SPECIFIC
-/// <see cref="ITicketRepository"/> rather than the generic repository, because the list needs a message
-/// count per ticket — which the specific repository projects in the database instead of loading every
-/// message body (see <see cref="ITicketRepository.ListSummariesAsync"/>).
+/// Use case: list all support tickets (most recently opened first). It uses <see cref="ITicketSummaryQuery"/>
+/// rather than the repository, because the list needs a message count per ticket — a report-shaped
+/// projection the repository (which only returns <c>Ticket</c> entities) has no business producing. The
+/// mapping from the query's read model to the API-facing <see cref="TicketListItemDto"/> happens here.
 /// </summary>
 public sealed class ListTickets
 {
-    private readonly ITicketRepository _tickets;
+    private readonly ITicketSummaryQuery _query;
 
-    public ListTickets(ITicketRepository tickets) => _tickets = tickets;
+    public ListTickets(ITicketSummaryQuery query) => _query = query;
 
     public async Task<Result<IReadOnlyList<TicketListItemDto>>> ExecuteAsync(CancellationToken ct)
     {
-        var summaries = await _tickets.ListSummariesAsync(ct);
+        var summaries = await _query.ListAsync(ct);
         return Result<IReadOnlyList<TicketListItemDto>>.Success(summaries.Select(s => s.ToListItem()).ToList());
     }
 }

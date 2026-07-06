@@ -4,9 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Infrastructure;
 using ModularShop.Kernel.Infrastructure.Persistence;
+using ModularShop.Modules.Support.Application.Queries;
 using ModularShop.Modules.Support.Application.UseCases;
 using ModularShop.Modules.Support.Domain;
-using ModularShop.Modules.Support.Domain.Repositories;
 using ModularShop.Modules.Support.Infrastructure.Persistence;
 
 namespace ModularShop.Modules.Support.Infrastructure;
@@ -29,9 +29,10 @@ public sealed class SupportModule : IModule, IModuleModel
         services.AddScoped<AddTicketMessage>();
         services.AddScoped<ChangeTicketStatus>();
 
-        // Support's SPECIFIC repository (the generic IRepository<Ticket> is registered by the host).
-        // Used by ListTickets for its efficient count-projection query.
-        services.AddScoped<ITicketRepository, TicketRepository>();
+        // Support's specific read query (NOT a repository — the generic IRepository<Ticket> is
+        // registered by the host and covers all entity CRUD). Used by ListTickets for its efficient
+        // count-projection query, which a repository has no business returning.
+        services.AddScoped<ITicketSummaryQuery, TicketSummaryQuery>();
 
         services.AddScoped<IModuleInitializer, SupportSeeder>();
     }
