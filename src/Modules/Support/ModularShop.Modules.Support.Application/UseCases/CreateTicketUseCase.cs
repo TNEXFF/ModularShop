@@ -1,6 +1,5 @@
 using Ardalis.Result;
 using Microsoft.Extensions.Logging;
-using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain;
 using ModularShop.Kernel.Domain.Repositories;

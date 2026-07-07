@@ -1,5 +1,4 @@
 using Ardalis.Result;
-using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Repositories;
 using ModularShop.Modules.Support.Application.Dtos;
