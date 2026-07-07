@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ModularShop.Kernel.Domain;
-using ModularShop.Kernel.Infrastructure.Identity;
+using ModularShop.Kernel.Domain.Identity;
 
 namespace ModularShop.Kernel.Infrastructure;
 

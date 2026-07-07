@@ -19,9 +19,16 @@ public interface IModule
     /// <summary>
     /// The module's DbContext type. It declares the module's entities and configures them (and their
     /// schema) in its own <c>OnModelCreating</c>; the host instantiates it purely to harvest that model
-    /// (see <c>IModelContributor</c> / <c>ModuleDbContext</c>).
+    /// (the host harvests its model by reflection — see <c>ApplyModuleModels</c>).
     /// </summary>
     Type ContextType { get; }
+
+    /// <summary>
+    /// A foundational module is always loaded (it ignores the "Modules" selection in configuration) and
+    /// its model is composed first. The kernel is the only foundational module: every feature module
+    /// relies on its repositories, Identity and shared entities, and creates cross-schema FKs to them.
+    /// </summary>
+    bool IsFoundational => false;
 
     /// <summary>Register everything the module owns: its services, use cases, controllers, event handlers and initializer.</summary>
     void Register(IServiceCollection services, IConfiguration configuration);

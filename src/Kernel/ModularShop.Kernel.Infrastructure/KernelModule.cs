@@ -5,26 +5,28 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
+using ModularShop.Kernel.Domain.Identity;
 using ModularShop.Kernel.Domain.Repositories;
-using ModularShop.Kernel.Infrastructure;
-using ModularShop.Kernel.Infrastructure.Identity;
 using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Kernel.Infrastructure.Persistence.Repositories;
 
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Infrastructure;
 
 /// <summary>
 /// The kernel as a module. It is special — it owns the cross-cutting building blocks every other module
 /// relies on — but it registers its own parts through the same <see cref="IModule"/> contract as any
 /// feature module, and contributes its <see cref="KernelDbContext"/> to the one host model the same way.
-/// It registers the generic repositories + unit of work, ASP.NET Core Identity (cookie auth, Guid keys)
-/// over the host context, the current-user accessor, and the kernel seeder. Its controllers (the
-/// <c>AuthController</c> in this assembly) are discovered by MVC exactly like every module's.
+/// Its <see cref="IModule"/> implementation lives here in the kernel's <b>Infrastructure</b> layer, exactly
+/// like every feature module's does (the Api layer holds only controllers). It registers the generic
+/// repositories + unit of work, ASP.NET Core Identity (cookie auth, Guid keys) over the host context, the
+/// current-user accessor, and the kernel seeder. Its controllers (the <c>AuthController</c> in the kernel's
+/// Api assembly) are discovered by MVC exactly like every module's.
 /// </summary>
 public sealed class KernelModule : IModule
 {
     public string Name => "Kernel";
     public Type ContextType => typeof(KernelDbContext);
+    public bool IsFoundational => true;
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {

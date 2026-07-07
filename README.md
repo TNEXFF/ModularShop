@@ -11,10 +11,11 @@ realistic flow (place an order → check price/stock → decrement stock → cre
 **both** ways modules talk to each other. Every module is a small **Clean Architecture** stack of its
 own (Domain · Application · Infrastructure · Api).
 
-> **The defining choice ("Option B"):** each module keeps its own `DbContext`, but only as an
-> organisational **blueprint**. At runtime there is **one host context** (`ModularShopDbContext`) that
-> absorbs every module’s blueprint by reflection, owns the **centralised** migrations, and is the only
-> context services touch. See [`docs/architecture.md`](docs/architecture.md) §3.
+> **The defining choice:** each module owns an ordinary `DbContext`. At runtime there is **one host
+> context** (`ModularShopDbContext`) that harvests every module’s model (invoking its `OnModelCreating`
+> by reflection), owns the **centralised** migrations, and is the only context services touch. The
+> **kernel is itself a module**, and modules are **discovered dynamically** and chosen by configuration.
+> See [`docs/architecture.md`](docs/architecture.md) §3 and §5.
 
 > New here? Read [`docs/architecture.md`](docs/architecture.md) for the concepts + diagrams,
 > [`docs/decision-log.md`](docs/decision-log.md) for *why* every choice was made, and
@@ -53,15 +54,15 @@ ModularShop/
 ├─ ModularShop.slnx                      # solution (modern .slnx format; CLI or a recent VS/Rider)
 ├─ docs/  architecture.md · decision-log.md · platform-mapping.md
 ├─ src/
-│  ├─ ModularShop.Server/                # HOST = composition root (Program.cs). No business logic.
-│  │  ├─ HostModules.cs                  #   the one list of modules (runtime + design-time migrations)
-│  │  └─ Persistence/                    #   ModularShopDbContext (the ONE runtime context) + factory
-│  │  └─ Migrations/                     #   the ONE centralised migration chain
+│  ├─ ModularShop.Server/                # HOST = web composition root (Program.cs). No business logic.
+│  │  └─ appsettings.json                #   optional "Modules": ["Sales",…] selects which modules load
+│  ├─ ModularShop.Infrastructure/        # host persistence layer: ModularShopDbContext (the ONE runtime
+│  │                                     #   context) + Migrations/ (the ONE centralised migration chain)
 │  ├─ Kernel/                            # shared kernel — itself Clean Architecture, kept lean
-│  │  ├─ ModularShop.Kernel.Domain            # Entity · Customer · Currency (shared entities)
-│  │  ├─ ModularShop.Kernel.Application       # ICurrentUser
-│  │  ├─ ModularShop.Kernel.Infrastructure    # KernelDbContext(Identity), IModuleModel + reflection, IModule, seeder
-│  │  └─ ModularShop.Kernel.Web               # ApiResponse, ApiControllerBase([Authorize]), AuthController, middleware
+│  │  ├─ ModularShop.Kernel.Domain            # Entity · Customer · Currency · ApplicationUser/Role (identity)
+│  │  ├─ ModularShop.Kernel.Application       # ICurrentUser · UseCase base · IUnitOfWork
+│  │  ├─ ModularShop.Kernel.Infrastructure    # KernelDbContext(Identity), KernelModule + AddModules discovery, reflection composition, Repository<T>, CurrentUser, seeder
+│  │  └─ ModularShop.Kernel.Api               # ApiResponse, ApiControllerBase([Authorize]), AuthController, middleware
 │  └─ Modules/
 │     ├─ Sales/      .Domain·.Application·.Infrastructure·.Api  (+ .Contracts: OrderPlaced)
 │     ├─ Warehouse/  .Domain·.Application·.Infrastructure·.Api  (+ .Contracts: IWarehouseApi)
@@ -70,19 +71,33 @@ ModularShop/
 └─ client/                               # React + TypeScript SPA (Vite, pnpm); builds into Server/wwwroot
 ```
 
-Each `*.Infrastructure` holds the module’s **blueprint** `DbContext` (DbSets only) under `Persistence/`.
-There are **no** per‑module migrations — the host owns the single chain in `ModularShop.Server/Migrations`.
+Each `*.Infrastructure` holds the module’s own `DbContext` (which configures its entities + schema) under
+`Persistence/`. There are **no** per‑module migrations — the host owns the single chain in `ModularShop.Infrastructure/Migrations`.
 
 | Layer (per module) | Contents | May reference |
 |---|---|---|
 | `*.Domain` | Entities, enums, domain logic | Kernel.Domain |
 | `*.Application` | Use cases (inject `IReadRepository<T>`/`IRepository<T>` + `IUnitOfWork`), DTOs, mappings | Domain, Kernel.Domain, Kernel.Application, other modules’ `*.Contracts` (**no EF Core**) |
-| `*.Infrastructure` | Blueprint DbContext, `XModule` (`IModule`+`IModuleModel`), seeding, event handlers | Application, Domain, Kernel.Infrastructure |
-| `*.Api` | Controllers only (invoke use cases, return `ApiResponse`) | Application, Kernel.Web |
+| `*.Infrastructure` | The module's `DbContext`, `XModule` (its `IModule`), seeding, event handlers | Application, Domain, Kernel.Infrastructure |
+| `*.Api` | Controllers only (invoke use cases, return `ApiResponse`) | Application, Kernel.Api |
 | `*.Contracts` | Public surface other modules may use | nothing (or `MediatR.Contracts`) |
 
 **Boundary rule (compile‑time):** a module’s projects reference **only** the Kernel and other modules’
-`*.Contracts`. Support references only the Kernel. The host is the only project that references every module.
+`*.Contracts`. Support references only the Kernel. The host (`ModularShop.Server` + `ModularShop.Infrastructure`)
+is the only place that references every module. **`Kernel.Infrastructure` is a kernel implementation detail:
+only the modules’ own `*.Infrastructure` projects (and the host) reference it — the kernel’s `Api` layer and
+every module’s other layers never do.**
+
+**Selecting which modules load.** The kernel’s `AddModules` discovers every referenced module and, with
+no configuration, loads them all. A deployment can pick a subset in `appsettings.json` — the kernel
+always loads regardless:
+
+```jsonc
+"Modules": [ "Sales", "Support" ]   // load Kernel (always) + Sales + Support; omit the key → load all
+```
+
+A new **micro‑solution** is then a fresh host that references the kernel + the modules it wants, calls
+`AddModules`, and generates its own migration for that set (see [`docs/architecture.md`](docs/architecture.md) §5).
 
 ---
 
@@ -120,9 +135,10 @@ except `register`/`login` require the auth cookie. Browse them at **`/swagger`**
 
 | Package | Where | Why |
 |---|---|---|
-| **Microsoft.AspNetCore.Identity.EntityFrameworkCore** `10.0.9` | Kernel.Infrastructure | Users/roles for authentication — a kernel concern, stored in the one host context. |
+| **Microsoft.AspNetCore.Identity.EntityFrameworkCore** `10.0.9` | Kernel.Infrastructure | The EF Core **Identity stores** (UserManager/RoleManager over `KernelDbContext`) — a kernel concern, persisted in the one host context. |
+| **Microsoft.Extensions.Identity.Stores** `10.0.9` | Kernel.Domain | The `IdentityUser<Guid>`/`IdentityRole<Guid>` base types that `ApplicationUser`/`ApplicationRole` extend. A deliberate, documented **Clean‑Architecture exception** (identity entities in the core) so no layer needs the kernel’s Infrastructure just to name the user. |
 | **Microsoft.EntityFrameworkCore(.SqlServer)** `10.0.9` | Kernel.Infrastructure | The single host context, the generic `Repository<T>`, and `UnitOfWork`. The Application layer stays EF‑free — use cases depend on the repository abstractions instead. (The host also references `EntityFrameworkCore.Design` for migration tooling.) |
-| **Ardalis.Result** `10.1.0` | Application, Kernel.Web | Result type every use case returns (`Success`/`NotFound`/`Invalid`), mapped to HTTP + `ApiResponse`. |
+| **Ardalis.Result** `10.1.0` | Application, Kernel.Api | Result type every use case returns (`Success`/`NotFound`/`Invalid`), mapped to HTTP + `ApiResponse`. |
 | **MediatR** `14.2.0` (+ **MediatR.Contracts** `2.0.1`) | Infrastructure / Application / Server / `Sales.Contracts` | The in‑process integration‑event bus. `OrderPlaced` is an `INotification`. Community licence is free for education; key optional via `MediatR:LicenseKey`. |
 | **Swashbuckle.AspNetCore** `10.2.3` | Server | Swagger / OpenAPI UI at `/swagger`. |
 
@@ -183,15 +199,17 @@ dotnet run --project src/ModularShop.Server
 Open **http://localhost:5080** — the host serves the React app *and* the API from one origin.
 
 ### Migrations (already generated; here for reference)
-There is **one** centralised chain, owned by the host and created with the **official EF tool**:
+There is **one** centralised chain, owned by the host’s Infrastructure project and created with the
+**official EF tool** (the migrations assembly is `ModularShop.Infrastructure`; the startup project is the host):
 ```bash
 dotnet ef migrations add InitialCreate \
-  --project src/ModularShop.Server \
+  --project src/ModularShop.Infrastructure \
   --startup-project src/ModularShop.Server \
-  --context ModularShopDbContext --output-dir Migrations
+  --context ModularShopDbContext
 ```
-A design‑time factory builds the host context with the full module list, so the one migration covers
-every module’s tables. Migrations apply automatically at startup.
+No design‑time factory is needed — `dotnet ef` boots the app's own service provider, so `AddModules`
+selects the same modules the runtime uses and the one migration covers every enabled module's tables.
+Migrations apply automatically at startup.
 
 ---
 
@@ -210,22 +228,28 @@ Generous and coherent, created on first run:
 
 ## What was verified
 
-On the build machine (WSL2 with the Windows .NET 10 toolchain + SQL Server 2022):
+Verified in this environment (WSL2 with the Windows .NET 10 toolchain + SQL Server 2022):
 
-- ✅ `dotnet build` of the whole solution (**23 projects**) — 0 warnings, 0 errors.
-- ✅ `dotnet ef migrations add` for the **one** `ModularShopDbContext` — schemas `kernel` / `sales` /
-  `warehouse` / `shipping` / `support`, child tables placed correctly, cross‑schema FKs to the shared
-  kernel `Customer` (from Orders, Shipments, Tickets) and `Currency` (from Orders, Products).
-- ✅ Running the host created `ModularShopDemo`, applied the single migration, and seeded everything in
-  order (currencies → customers → Identity → orders/products/shipments/tickets).
-- ✅ **Auth:** unauthenticated `GET /api/products` → **401**; cookie login as `admin@…` → `me` returns
-  the user + role; all module endpoints then reachable.
-- ✅ **Live flow:** `POST /api/orders` → sync `IWarehouseApi` check, order saved (PlacedBy = the signed‑in
-  user), `OrderPlaced` published; Warehouse **decremented stock (95→93)** and Shipping **created a
-  shipment (6→7)**. `POST .../{id}/ship` advanced state. `POST /api/tickets` created a ticket against the
-  shared customer, authored by the Identity user.
-- ✅ Frontend: `pnpm typecheck` + `pnpm build` (pnpm 11 / Node 24) succeeded; the host serves the SPA at
-  `/` and its assets on the same origin.
+- ✅ `dotnet build` of the whole solution (**24 projects**) — 0 warnings, 0 errors.
+- ✅ The reflection‑composed model matches the centralised migration: `dotnet ef migrations
+  has-pending-model-changes` reports **no changes**. The running `ModularShopDemo` shows the five schemas
+  `kernel` / `sales` / `warehouse` / `shipping` / `support`, child tables placed correctly, and
+  cross‑schema FKs to the shared kernel `Customer` (Orders, Shipments, Tickets) and `Currency` (Orders,
+  Products).
+- ✅ Running the host created `ModularShopDemo`, applied the single migration, and seeded every module in
+  order (kernel currencies/customers/Identity → Sales → Shipping → Support → Warehouse).
+- ✅ **Module discovery + selection:** `GET /api` lists the loaded modules
+  `["Kernel","Sales","Shipping","Support","Warehouse"]`. With `"Modules": ["Support"]`, only Kernel +
+  Support compose — proven by `has-pending-model-changes` then reporting the model differs from the
+  all‑module migration.
+- ✅ **Auth:** unauthenticated `GET /api/products` → **401**; cookie login as `admin@…` → every module
+  endpoint (`products`, `orders`, `shipments`, `tickets`) then returns **200**.
+- ✅ **Live order→shipment flow:** `POST /api/orders` (2 × a product) → sync `IWarehouseApi` price/stock
+  check, order saved (`PlacedBy` = the signed‑in user), `OrderPlaced` published; Warehouse **decremented
+  that product's stock 110→108** and Shipping **created a `Pending` shipment (7→8)** — both on the one
+  host context.
+- ✅ Frontend (unchanged by this work): `pnpm typecheck` + `pnpm build` (pnpm 11 / Node 24) succeed; the
+  host serves the SPA at `/` and its assets on the same origin.
 
 ---
 

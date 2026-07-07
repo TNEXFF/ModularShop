@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Kernel.Api</RootNamespace>
+  </PropertyGroup>
+
+  <!-- The kernel's Api layer (renamed from Kernel.Web to match every feature module's .Api project). It
+       holds ASP.NET Core cross-cutting code (the ApiResponse envelope, the base API controller that maps
+       Ardalis Results to HTTP, the exception middleware) plus the kernel's own AuthController — controllers
+       only, exactly like a feature module's Api. A FrameworkReference lets a class library use ASP.NET Core
+       types, and it flows transitively so each module's Api project can build controllers without
+       referencing ASP.NET Core directly. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+    <!-- The AuthController names the ApplicationUser/Role identity entities, which live in the kernel's
+         Core (Domain) layer. The Api layer references only Domain + Application — never the kernel's
+         Infrastructure, which stays an implementation detail used only by module Infrastructure layers. -->
+    <ProjectReference Include="..\ModularShop.Kernel.Domain\ModularShop.Kernel.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" />
+  </ItemGroup>
+
+</Project>

@@ -1,25 +1,26 @@
 using Microsoft.EntityFrameworkCore;
+using ModularShop.Infrastructure.Persistence;
+using ModularShop.Kernel.Api;
 using ModularShop.Kernel.Infrastructure;
-using ModularShop.Kernel.Web;
-using ModularShop.Server;
-using ModularShop.Server.Persistence;
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 //  ModularShop.Server — the COMPOSITION ROOT (a.k.a. the host).
 //
-//  This is the only project that knows the full set of modules. It owns the SINGLE DbContext (onto which
-//  every module's model — the kernel's included — is layered), the centralised migrations, and the HTTP
-//  pipeline. It contains NO module logic of its own: each module (the kernel is just a special one)
-//  registers ALL of its own parts through IModule.Register — services, use cases, controllers, event bus
-//  and seeders. Adding a feature = add a module and a single line to HostModules.
+//  This is the web host: it wires the HTTP pipeline and the single DbContext, then hands off. Persistence
+//  itself — the host context that layers every module's model onto one database, plus the centralised
+//  migrations — lives in ModularShop.Infrastructure. The host contains NO module logic of its own: each
+//  module (the kernel is just a special one) registers ALL of its own parts through IModule.Register —
+//  services, use cases, controllers, event bus and seeders. Adding a feature = create a module and
+//  reference it (optionally name it under "Modules"). Discovery, selection, model composition and the
+//  migrate-then-seed startup routine all live behind AddModules / InitializeModulesAsync.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 var builder = WebApplication.CreateBuilder(args);
 
-var modules = HostModules.All();
 var connectionString = builder.Configuration.GetConnectionString("ModularShopDemo");
 
-// ── The single host context: owns the database + the centralised migrations (history kept in dbo) ──────
+// ── The single host context (defined in ModularShop.Infrastructure): owns the database + the centralised
+//    migrations (history kept in dbo). The host just registers it and points it at the connection. ──────
 builder.Services.AddDbContext<ModularShopDbContext>(options =>
     options.UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "dbo")));
 
@@ -27,14 +28,12 @@ builder.Services.AddDbContext<ModularShopDbContext>(options =>
 // to the one host context so a module never needs to reference the host's concrete type.
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbContext>());
 
-// ── Register each module (the kernel included) and let it register ALL of its own parts ────────────────
-// The host adds nothing module-specific here — no repositories, no Identity, no MediatR, no controller
-// lists. Each module owns those. Controllers ship inside the module assemblies and MVC discovers them.
-foreach (var module in modules)
-{
-    builder.Services.AddSingleton<IModule>(module);
-    module.Register(builder.Services, builder.Configuration);
-}
+// ── Discover, select and register every module (the kernel included) ────────────────────────────────────
+// AddModules scans the app's ModularShop.* assemblies for IModule implementations, keeps the ones named in
+// the "Modules" configuration array (absent ⇒ all; the foundational kernel is always kept), and lets each
+// register ALL of its own parts. The host adds nothing module-specific here. Controllers ship inside the
+// module assemblies and MVC discovers them.
+builder.Services.AddModules(builder.Configuration);
 
 // ── Host-level web composition: MVC, Swagger, CORS ─────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -52,15 +51,8 @@ builder.Services.AddCors(options => options.AddPolicy(DevCorsPolicy, policy => p
 
 var app = builder.Build();
 
-// ── Startup: migrate the single database ONCE, then run every seeder in Order ──────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ModularShopDbContext>();
-    await db.Database.MigrateAsync();
-
-    foreach (var initializer in scope.ServiceProvider.GetServices<IModuleInitializer>().OrderBy(i => i.Order))
-        await initializer.InitializeAsync();
-}
+// ── Startup: migrate the one database, then run every module's seeder in Order (see ModuleRegistration) ─
+await app.Services.InitializeModulesAsync();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

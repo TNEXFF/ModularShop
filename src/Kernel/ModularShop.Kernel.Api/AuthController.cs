@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using ModularShop.Kernel.Infrastructure.Identity;
+using ModularShop.Kernel.Domain.Identity;
 
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Api;
 
 /// <summary>
 /// Authentication endpoints backed by ASP.NET Core Identity. They live in the <b>kernel</b> because

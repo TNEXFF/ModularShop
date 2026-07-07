@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Api;
 
 /// <summary>
 /// Catches unhandled exceptions and returns a consistent <see cref="ApiResponse"/> with HTTP 500.

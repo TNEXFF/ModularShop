@@ -1,20 +1,20 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ModularShop.Kernel.Domain;
-using ModularShop.Kernel.Infrastructure.Identity;
+using ModularShop.Kernel.Domain.Identity;
 
 namespace ModularShop.Kernel.Infrastructure.Persistence;
 
 /// <summary>
 /// The kernel's DbContext. The kernel is composed into the single host model exactly like any other
-/// module, so this is its <see cref="IModelContributor"/>. It brings in ASP.NET Core Identity (users,
+/// module — the host harvests this model by reflection. It brings in ASP.NET Core Identity (users,
 /// roles, claims…) keyed by <b>Guid</b> — matching every other entity in the system — and the shared
 /// kernel entities (<see cref="Customer"/>, <see cref="Currency"/>) that several modules reference. It
 /// is never registered in DI or connected to a database at runtime: the host instantiates it only to
 /// harvest its model. Everything the kernel owns lives in the <c>kernel</c> schema (the model default it
 /// sets below); each module overrides that default for its own tables.
 /// </summary>
-public sealed class KernelDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>, IModelContributor
+public sealed class KernelDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
     /// <summary>Schema for everything the kernel owns (shared entities + all Identity tables).</summary>
     public const string Schema = "kernel";
@@ -27,9 +27,6 @@ public sealed class KernelDbContext : IdentityDbContext<ApplicationUser, Applica
     public DbSet<ApplicationRole> ApplicationRoles => Set<ApplicationRole>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Currency> Currencies => Set<Currency>();
-
-    /// <summary>Surfaces this context's model config so the host can layer it onto the one shared model.</summary>
-    public void ApplyModel(ModelBuilder modelBuilder) => OnModelCreating(modelBuilder);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

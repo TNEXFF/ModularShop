@@ -7,4 +7,12 @@
     <RootNamespace>ModularShop.Kernel.Domain</RootNamespace>
   </PropertyGroup>
 
+  <!-- Deliberate, documented Clean-Architecture exception: the domain references the ASP.NET Core Identity
+       base types so ApplicationUser/ApplicationRole (IdentityUser/Role<Guid>) can live in the core layer.
+       This keeps the identity ENTITY types out of Infrastructure, so no layer needs the kernel's
+       Infrastructure just to name the user — only the concrete Identity STORES stay in Infrastructure. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" />
+  </ItemGroup>
+
 </Project>

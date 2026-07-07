@@ -17,19 +17,15 @@
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 
-  <!-- The host references the kernel and every module's Infrastructure. Each module IS its own IModule and
-       brings its own controllers (its Infrastructure references its Api project), which MVC discovers
-       automatically — so the host lists no Api projects and contains no module-specific wiring. It is the
-       ONLY project that knows the full set of modules; modules never reference the host or each other's
-       implementations. -->
+  <!-- The web host wires only HTTP. Persistence, the centralised migrations and the CONCRETE set of modules
+       live behind ModularShop.Infrastructure (the composition/persistence layer), which the host references;
+       the kernel + module assemblies flow in transitively and MVC discovers their controllers automatically.
+       The host also references the kernel's Api layer directly for the AuthController + exception middleware
+       it uses by name. It is still the ONLY project that knows the full set of modules (through
+       ModularShop.Infrastructure); modules never reference the host or each other's implementations. -->
   <ItemGroup>
-    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
-    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
-
-    <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
-    <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Infrastructure\ModularShop.Modules.Support.Infrastructure.csproj" />
+    <ProjectReference Include="..\ModularShop.Infrastructure\ModularShop.Infrastructure.csproj" />
+    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Api\ModularShop.Kernel.Api.csproj" />
   </ItemGroup>
 
 </Project>

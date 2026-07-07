@@ -1,12 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ModularShop.Server/ModularShop.Server.csproj" />
+    <Project Path="src/ModularShop.Infrastructure/ModularShop.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Kernel/">
     <Project Path="src/Kernel/ModularShop.Kernel.Domain/ModularShop.Kernel.Domain.csproj" />
     <Project Path="src/Kernel/ModularShop.Kernel.Application/ModularShop.Kernel.Application.csproj" />
     <Project Path="src/Kernel/ModularShop.Kernel.Infrastructure/ModularShop.Kernel.Infrastructure.csproj" />
-    <Project Path="src/Kernel/ModularShop.Kernel.Web/ModularShop.Kernel.Web.csproj" />
+    <Project Path="src/Kernel/ModularShop.Kernel.Api/ModularShop.Kernel.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Sales/">

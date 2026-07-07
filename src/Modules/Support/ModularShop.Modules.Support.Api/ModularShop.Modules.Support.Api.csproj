@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Modules.Support.Application\ModularShop.Modules.Support.Application.csproj" />
-    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Api\ModularShop.Kernel.Api.csproj" />
   </ItemGroup>
 
 </Project>

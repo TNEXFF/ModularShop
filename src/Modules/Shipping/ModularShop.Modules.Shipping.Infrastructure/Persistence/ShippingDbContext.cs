@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using ModularShop.Kernel.Domain;
-using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Modules.Shipping.Domain;
 
 namespace ModularShop.Modules.Shipping.Infrastructure.Persistence;
@@ -8,9 +7,9 @@ namespace ModularShop.Modules.Shipping.Infrastructure.Persistence;
 /// <summary>
 /// The Shipping module's DbContext. It declares the module's entities and configures them — and their
 /// <c>shipping</c> schema — here. The host instantiates it only to layer this model onto the single host
-/// context (see <see cref="ModuleDbContext"/>); it is never registered or connected at runtime.
+/// context (the host harvests this model by reflection); it is never registered or connected at runtime.
 /// </summary>
-public sealed class ShippingDbContext : ModuleDbContext
+public sealed class ShippingDbContext : DbContext
 {
     public const string Schema = "shipping";
 

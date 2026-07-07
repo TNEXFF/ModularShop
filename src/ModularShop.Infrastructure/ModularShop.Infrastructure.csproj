@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ModularShop.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <!-- The host's composition/persistence layer. It owns the single host DbContext (which composes every
+       selected module's model) and the centralised EF Core migrations. It is the one place that knows the
+       CONCRETE set of modules — it references the kernel's Infrastructure plus every feature module's
+       Infrastructure — so the web host (ModularShop.Server) only has to wire HTTP. EF Core (SqlServer +
+       migrations) flows in transitively from the kernel's Infrastructure. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Sales\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Warehouse\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Shipping\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Support\ModularShop.Modules.Support.Infrastructure\ModularShop.Modules.Support.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

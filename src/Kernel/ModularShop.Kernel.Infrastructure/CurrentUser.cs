@@ -2,13 +2,14 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using ModularShop.Kernel.Application;
 
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Infrastructure;
 
 /// <summary>
-/// <see cref="ICurrentUser"/> backed by the authenticated ASP.NET Core principal (cookie auth, set by
-/// the kernel's Identity sign-in). Use cases depend only on the kernel's <c>ICurrentUser</c> abstraction
-/// and never touch <c>HttpContext</c> or Identity directly. Falls back to <c>"system"</c> when there is
-/// no authenticated user (e.g. during startup seeding).
+/// <see cref="ICurrentUser"/> backed by the authenticated ASP.NET Core principal (cookie auth, set by the
+/// kernel's Identity sign-in). It is the kernel's Identity/HTTP adapter, so it lives in the kernel's
+/// <b>Infrastructure</b> layer alongside the other Identity wiring. Use cases depend only on the kernel's
+/// <c>ICurrentUser</c> abstraction and never touch <c>HttpContext</c> or Identity directly. Falls back to
+/// <c>"system"</c> when there is no authenticated user (e.g. during startup seeding).
 /// </summary>
 internal sealed class CurrentUser : ICurrentUser
 {

@@ -1,4 +1,4 @@
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Api;
 
 /// <summary>
 /// Uniform JSON envelope returned by every controller endpoint. Every response — success or

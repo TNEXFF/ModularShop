@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using ModularShop.Kernel.Domain;
-using ModularShop.Kernel.Infrastructure.Persistence;
 using ModularShop.Modules.Sales.Domain;
 
 namespace ModularShop.Modules.Sales.Infrastructure.Persistence;
@@ -9,9 +8,9 @@ namespace ModularShop.Modules.Sales.Infrastructure.Persistence;
 /// The Sales module's DbContext. It declares the module's entities (as <c>DbSet</c>s) and configures them
 /// — and their <c>sales</c> schema — in <see cref="OnModelCreating"/>, exactly like a standalone context.
 /// The host never registers or connects it; it instantiates it only to layer this model onto the single
-/// host context (see <see cref="ModuleDbContext"/>). This is the module's one and only place for EF config.
+/// host context (the host harvests this model by reflection). This is the module's one place for EF config.
 /// </summary>
-public sealed class SalesDbContext : ModuleDbContext
+public sealed class SalesDbContext : DbContext
 {
     public const string Schema = "sales";
 

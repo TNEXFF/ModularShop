@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ModularShop.Kernel.Infrastructure;
-using ModularShop.Kernel.Web;
+using ModularShop.Kernel.Api;
 
 namespace ModularShop.Server.Controllers;
 

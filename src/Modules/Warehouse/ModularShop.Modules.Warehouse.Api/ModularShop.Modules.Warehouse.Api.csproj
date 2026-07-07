@@ -12,7 +12,7 @@
        Domain — controllers invoke use cases and know nothing about persistence. -->
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Modules.Warehouse.Application\ModularShop.Modules.Warehouse.Application.csproj" />
-    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Web\ModularShop.Kernel.Web.csproj" />
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Api\ModularShop.Kernel.Api.csproj" />
   </ItemGroup>
 
 </Project>

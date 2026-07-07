@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace ModularShop.Kernel.Infrastructure.Identity;
+namespace ModularShop.Kernel.Domain.Identity;
 
 /// <summary>The application's role (e.g. <c>Admin</c>, <c>Agent</c>), extending Identity's <see cref="IdentityRole"/>.</summary>
 public sealed class ApplicationRole : IdentityRole<Guid>

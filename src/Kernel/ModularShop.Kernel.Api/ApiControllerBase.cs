@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ModularShop.Kernel.Web;
+namespace ModularShop.Kernel.Api;
 
 /// <summary>
 /// Base class for every module's controllers. It translates the Ardalis <see cref="Result{T}"/>

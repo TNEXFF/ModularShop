@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using ModularShop.Kernel.Web;
+using ModularShop.Kernel.Api;
 using ModularShop.Modules.Support.Application.Dtos;
 using ModularShop.Modules.Support.Application.UseCases;
 

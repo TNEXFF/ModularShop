@@ -7,6 +7,14 @@
     <RootNamespace>ModularShop.Kernel.Infrastructure</RootNamespace>
   </PropertyGroup>
 
+  <!-- The kernel's IModule (KernelModule) and its ICurrentUser adapter (CurrentUser) live here, in the
+       kernel's Infrastructure layer — exactly like every feature module's XModule does. Wiring cookie
+       Identity (AddIdentity/ConfigureApplicationCookie) and reading the principal (IHttpContextAccessor)
+       need ASP.NET Core types, so this layer takes the framework reference. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
   </ItemGroup>

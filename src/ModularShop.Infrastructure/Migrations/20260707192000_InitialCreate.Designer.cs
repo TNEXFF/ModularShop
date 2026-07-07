@@ -5,14 +5,14 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ModularShop.Server.Persistence;
+using ModularShop.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace ModularShop.Server.Migrations
+namespace ModularShop.Infrastructure.Migrations
 {
     [DbContext(typeof(ModularShopDbContext))]
-    [Migration("20260706160611_InitialCreate")]
+    [Migration("20260707192000_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -174,7 +174,7 @@ namespace ModularShop.Server.Migrations
                     b.ToTable("Customers", "kernel");
                 });
 
-            modelBuilder.Entity("ModularShop.Kernel.Infrastructure.Identity.ApplicationRole", b =>
+            modelBuilder.Entity("ModularShop.Kernel.Domain.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -202,7 +202,7 @@ namespace ModularShop.Server.Migrations
                     b.ToTable("AspNetRoles", "kernel");
                 });
 
-            modelBuilder.Entity("ModularShop.Kernel.Infrastructure.Identity.ApplicationUser", b =>
+            modelBuilder.Entity("ModularShop.Kernel.Domain.Identity.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -574,7 +574,7 @@ namespace ModularShop.Server.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationRole", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -583,7 +583,7 @@ namespace ModularShop.Server.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationUser", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -592,7 +592,7 @@ namespace ModularShop.Server.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationUser", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -601,13 +601,13 @@ namespace ModularShop.Server.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationRole", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationUser", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -616,7 +616,7 @@ namespace ModularShop.Server.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
-                    b.HasOne("ModularShop.Kernel.Infrastructure.Identity.ApplicationUser", null)
+                    b.HasOne("ModularShop.Kernel.Domain.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
