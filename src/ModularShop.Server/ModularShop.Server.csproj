@@ -5,6 +5,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ModularShop.Server</RootNamespace>
+    <!-- Turn OFF the Web SDK's implicit MVC controller discovery. By default it emits an
+         [assembly: ApplicationPart] for every referenced assembly that uses MVC, so a module's controllers
+         would be discovered merely by being referenced. Instead, each module registers its OWN controllers
+         explicitly (services.AddControllers().AddApplicationPart(...) in its IModule.Register) — see
+         docs/decision-log.md D13. Leaving this ON would DOUBLE-register every module controller (the implicit
+         part + the explicit one) and throw at startup, so EVERY host / micro-solution must keep this false. -->
+    <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
   </PropertyGroup>
 
   <!-- EF Core design-time tooling (used by `dotnet ef` with this as the startup project).
@@ -19,7 +26,8 @@
 
   <!-- The web host wires only HTTP. Persistence, the centralised migrations and the CONCRETE set of modules
        live behind ModularShop.Infrastructure (the composition/persistence layer), which the host references;
-       the kernel + module assemblies flow in transitively and MVC discovers their controllers automatically.
+       the kernel + module assemblies flow in transitively; each module registers its OWN controllers in its
+       IModule.Register (implicit discovery is off — see GenerateMvcApplicationPartsAssemblyAttributes above).
        The host also references the kernel's Api layer directly for the AuthController + exception middleware
        it uses by name. It is still the ONLY project that knows the full set of modules (through
        ModularShop.Infrastructure); modules never reference the host or each other's implementations. -->

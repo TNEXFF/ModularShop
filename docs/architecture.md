@@ -73,7 +73,7 @@ Each module is a small Clean‑Architecture stack of **four projects**, dependen
   Api  ───►  Application  ───►  Domain
    │              │
    └────►  Infrastructure  ───► Application, Domain, Kernel
-   (host wires Infrastructure + Api together)
+   (each module's Infrastructure registers its own Api controllers; the host just composes the modules)
 ```
 
 - **Domain** (`Product`, `Order`, `Shipment`, `Ticket`, …) — entities and rules. No framework deps
@@ -273,7 +273,7 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbC
 
 builder.Services.AddModules(builder.Configuration);   // ← the whole module system
 
-builder.Services.AddControllers();     // module controllers are auto-discovered from their assemblies
+builder.Services.AddControllers();     // MVC; each module adds its OWN controllers in its Register (below)
 builder.Services.AddSwaggerGen();
 // … CORS for the dev SPA …
 var app = builder.Build();
@@ -287,8 +287,11 @@ in `Kernel.Infrastructure` — exactly where every feature module keeps its `XMo
 `Repository<T>` + `UnitOfWork`, ASP.NET Identity (cookie, Guid keys) over the host context, `ICurrentUser`,
 and the kernel seeder; each **feature module** registers
 its use cases (`AddUseCases`, by convention), the per‑module MediatR bus if it uses events, and its
-seeder. **Controllers** ship in each module’s `Api` project (referenced by its `Infrastructure`), so MVC
-discovers them automatically — the host lists none.
+seeder. It also registers **its own controllers** as an MVC application part —
+`services.AddControllers().AddApplicationPart(typeof(SomeController).Assembly)`. The Web SDK's *implicit*
+controller discovery is turned **off** in the host project (`GenerateMvcApplicationPartsAssemblyAttributes=
+false`), so a module ships its controllers only by adding its own `Api` assembly; the host lists none, and a
+module the config didn't select contributes no routes at all. See decision **D13**.
 
 **Selecting modules per deployment.** Because selection is config‑driven, a deployment picks its modules
 in `appsettings.json`:
@@ -304,7 +307,8 @@ references all modules and ships one migration for all of them — the `"Modules
 switch: selecting a subset changes the composed model, so you would regenerate the migration to match.)
 
 **Adding a feature = create the module’s projects and reference the module** (optionally name it under
-`"Modules"`). No host code changes — no list to edit.
+`"Modules"`). The module's `Register` wires all its own parts — including its controllers, via
+`AddControllers().AddApplicationPart(typeof(SomeController).Assembly)` (see **D13**). No host code changes.
 
 Note the **centralised startup**, a single `app.Services.InitializeModulesAsync()` (in the kernel's
 `ModuleRegistration`): it migrates the one database once, then runs each `IModuleInitializer` — which only

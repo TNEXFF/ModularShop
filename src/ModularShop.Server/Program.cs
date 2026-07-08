@@ -31,11 +31,15 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ModularShopDbC
 // ── Discover, select and register every module (the kernel included) ────────────────────────────────────
 // AddModules scans the app's ModularShop.* assemblies for IModule implementations, keeps the ones named in
 // the "Modules" configuration array (absent ⇒ all; the foundational kernel is always kept), and lets each
-// register ALL of its own parts. The host adds nothing module-specific here. Controllers ship inside the
-// module assemblies and MVC discovers them.
+// register ALL of its own parts (including its controllers, as an MVC application part). This project turns
+// OFF the SDK's implicit controller discovery (GenerateMvcApplicationPartsAssemblyAttributes=false, see the
+// .csproj), so a module ships its controllers only by adding its own Api assembly in Register — see D13.
 builder.Services.AddModules(builder.Configuration);
 
 // ── Host-level web composition: MVC, Swagger, CORS ─────────────────────────────────────────────────────
+// Each module already called AddControllers() in its Register (safe to call repeatedly — the calls share one
+// ApplicationPartManager). This host-level call is the canonical MVC registration and also picks up any
+// controller in the entry assembly itself (AppInfoController). Module/kernel controllers were added above.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -70,7 +74,8 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Module + kernel controllers (discovered by MVC from the referenced module assemblies).
+// Module + kernel controllers (each module registered its own Api assembly as an MVC application part in its
+// IModule.Register — the SDK's implicit discovery is off; see the host .csproj + decision-log D13).
 app.MapControllers();
 
 // SPA fallback: non-API routes return index.html so client-side routing works.

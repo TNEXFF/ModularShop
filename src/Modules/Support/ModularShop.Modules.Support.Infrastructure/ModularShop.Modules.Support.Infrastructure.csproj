@@ -11,7 +11,9 @@
     <ProjectReference Include="..\ModularShop.Modules.Support.Application\ModularShop.Modules.Support.Application.csproj" />
     <ProjectReference Include="..\ModularShop.Modules.Support.Domain\ModularShop.Modules.Support.Domain.csproj" />
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
-    <!-- The module ships its own controllers (discovered by MVC); the host never enumerates them. -->
+    <!-- SupportModule.Register registers this Api assembly's controllers as an MVC application part
+         (AddControllers().AddApplicationPart(typeof(TicketsController)...)) — a REAL, used reference; do NOT
+         remove it (removing it silently drops the module's routes). See docs/decision-log.md D13. -->
     <ProjectReference Include="..\ModularShop.Modules.Support.Api\ModularShop.Modules.Support.Api.csproj" />
   </ItemGroup>
 

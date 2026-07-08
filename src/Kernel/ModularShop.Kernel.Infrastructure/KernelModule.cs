@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ModularShop.Kernel.Api;
 using ModularShop.Kernel.Application;
 using ModularShop.Kernel.Application.Abstractions;
 using ModularShop.Kernel.Domain.Identity;
@@ -20,7 +21,7 @@ namespace ModularShop.Kernel.Infrastructure;
 /// like every feature module's does (the Api layer holds only controllers). It registers the generic
 /// repositories + unit of work, ASP.NET Core Identity (cookie auth, Guid keys) over the host context, the
 /// current-user accessor, and the kernel seeder. Its controllers (the <c>AuthController</c> in the kernel's
-/// Api assembly) are discovered by MVC exactly like every module's.
+/// Api assembly) are registered as an MVC application part in <see cref="Register"/>, exactly like every module's.
 /// </summary>
 public sealed class KernelModule : IModule
 {
@@ -30,6 +31,11 @@ public sealed class KernelModule : IModule
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
+        // ── This module's controllers (AuthController), registered as an MVC application part. The host turns
+        //    OFF the SDK's implicit controller discovery (GenerateMvcApplicationPartsAssemblyAttributes=false),
+        //    so every module MUST add its own Api assembly explicitly here — see docs/decision-log.md D13. ──────
+        services.AddControllers().AddApplicationPart(typeof(AuthController).Assembly);
+
         // ── Data access: one open-generic repository + unit of work serve every module's entities ──────
         services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));

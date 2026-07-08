@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Infrastructure;
+using ModularShop.Modules.Shipping.Api.Controllers;
 using ModularShop.Modules.Shipping.Application.UseCases;
 using ModularShop.Modules.Shipping.Infrastructure.Persistence;
 
@@ -19,6 +20,11 @@ public sealed class ShippingModule : IModule
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
+        // This module's controllers, registered as an MVC application part. The host turns OFF the SDK's
+        // implicit controller discovery (GenerateMvcApplicationPartsAssemblyAttributes=false), so every module
+        // MUST add its own Api assembly explicitly here — see docs/decision-log.md D13.
+        services.AddControllers().AddApplicationPart(typeof(ShipmentsController).Assembly);
+
         services.AddUseCases(typeof(CreateShipmentUseCase).Assembly);
 
         // Shipping subscribes to OrderPlaced — its INotificationHandler lives in this assembly.

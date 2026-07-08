@@ -17,6 +17,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+    <!-- KernelModule.Register registers the kernel's own controllers (AuthController) as an MVC application
+         part, so it references the kernel's Api project — a REAL, used reference, exactly as every feature
+         module's Infrastructure references its own Api. Kernel.Api references only Domain + Application (never
+         Infrastructure, per D17), so there is no cycle. See docs/decision-log.md D13. -->
+    <ProjectReference Include="..\ModularShop.Kernel.Api\ModularShop.Kernel.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

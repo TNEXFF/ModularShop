@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModularShop.Kernel.Infrastructure;
+using ModularShop.Modules.Support.Api.Controllers;
 using ModularShop.Modules.Support.Application.Queries;
 using ModularShop.Modules.Support.Application.UseCases;
 using ModularShop.Modules.Support.Infrastructure.Persistence;
@@ -20,6 +21,11 @@ public sealed class SupportModule : IModule
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
+        // This module's controllers, registered as an MVC application part. The host turns OFF the SDK's
+        // implicit controller discovery (GenerateMvcApplicationPartsAssemblyAttributes=false), so every module
+        // MUST add its own Api assembly explicitly here — see docs/decision-log.md D13.
+        services.AddControllers().AddApplicationPart(typeof(TicketsController).Assembly);
+
         services.AddUseCases(typeof(CreateTicketUseCase).Assembly);
 
         // Support's specific read query (NOT a repository — the generic IRepository<Ticket> is registered

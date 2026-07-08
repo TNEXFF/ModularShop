@@ -13,7 +13,9 @@
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
     <!-- Warehouse reacts to the Sales OrderPlaced event, so it references the Sales public contract. -->
     <ProjectReference Include="..\..\Sales\ModularShop.Modules.Sales.Contracts\ModularShop.Modules.Sales.Contracts.csproj" />
-    <!-- The module ships its own controllers (discovered by MVC); the host never enumerates them. -->
+    <!-- WarehouseModule.Register registers this Api assembly's controllers as an MVC application part
+         (AddControllers().AddApplicationPart(typeof(ProductsController)...)) — a REAL, used reference; do NOT
+         remove it (removing it silently drops the module's routes). See docs/decision-log.md D13. -->
     <ProjectReference Include="..\ModularShop.Modules.Warehouse.Api\ModularShop.Modules.Warehouse.Api.csproj" />
   </ItemGroup>
 

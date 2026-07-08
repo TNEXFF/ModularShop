@@ -138,11 +138,20 @@ that uses it. *Rejected:* modules reading each other's tables (the cardinal MM s
 (MediatR is already a dependency and does it cleanly). *Next step:* a transactional outbox behind the
 same publish call.
 
-### D13 — Use cases as `UseCase` classes (convention‑registered); controllers per module (auto‑discovered)
+### D13 — Use cases as `UseCase` classes (convention‑registered); each module registers its own controllers
 Each operation is one `UseCase` subclass, registered by scanning the module's Application assembly
-(`AddUseCases`) — no hand‑listing. Controllers live in each module's `Api` project (referenced by its
-`Infrastructure`) and MVC discovers them; the host registers none. *Rejected:* a CQRS command/query bus
-(out of scope by the brief); host‑side `AddApplicationPart` lists (another place to maintain).
+(`AddUseCases`) — no hand‑listing. **Controllers** live in each module's `Api` project (referenced by its
+`Infrastructure`), and each module registers its own in its `IModule.Register` as an MVC application part:
+`services.AddControllers().AddApplicationPart(typeof(SomeController).Assembly)`. The host turns **off** the
+Web SDK's implicit controller discovery (`GenerateMvcApplicationPartsAssemblyAttributes=false` in
+`ModularShop.Server.csproj`), so a module ships its controllers only by adding its own `Api` assembly — which
+makes every `*.Infrastructure → *.Api` reference a *real, used* one (a "remove unused references" pass can no
+longer silently delete it and 404 a whole module) and means a module the config didn't select contributes no
+routes. *Rejected:* the SDK's **implicit** discovery we used before (a referenced `*.Api`'s controllers
+appeared automatically) — its `*.Infrastructure → *.Api` reference was an invisible, unused side‑effect,
+prunable and thus fragile, and it exposed routes even for *deselected* modules; a **host‑side** central
+`AddApplicationPart` list (a second place to maintain — each module registering its own part keeps composition
+in the module, per D5); and a CQRS command/query bus (out of scope by the brief).
 
 ### D14 — `Ardalis.Result` + `ApiResponse<T>`; USD‑only demo; Central Package Management; Swagger
 Every use case returns `Ardalis.Result<T>`, mapped to an `ApiResponse<T>` envelope + HTTP status. The demo
@@ -190,6 +199,9 @@ reversals, kept only as pointers to *why* today's design looks the way it does:
 - Hand‑rolled `Result`/envelope → **`Ardalis.Result`** (kept the `ApiResponse<T>` envelope).
 - Hand‑rolled in‑process event bus → **MediatR** `INotification`s (registered per module).
 - Minimal APIs → **real controllers** invoking use cases.
+- SDK‑implicit controller discovery (a referenced `*.Api`'s controllers auto‑registered) → **each module
+  registers its own controllers** via `AddControllers().AddApplicationPart(...)` in `Register`, with the
+  host's implicit discovery turned off (D13).
 - A real `DbContext` per module at runtime → **one host context** composing every module.
 - Per‑module *blueprint* contexts + `IModuleModel`/`ModuleModelBuilder` (reflecting `DbSet`s) → each
   module's **real `DbContext`**, its own `OnModelCreating` reflected by the host.
