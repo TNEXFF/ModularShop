@@ -12,7 +12,8 @@ you will:
 > each module owns an ordinary `DbContext`; one host context composes them by reflection; the kernel is
 > itself a module; modules are discovered by scanning assemblies and selected by an `appsettings.json`
 > `"Modules"` array. Packaging changes **none** of that — it only changes *how the module DLLs arrive in a
-> host's `bin` folder* (via a package instead of a project reference).
+> host's `bin` folder* (via a package instead of a project reference). The real, runnable output of this
+> guide already lives in the sibling **`OrderingHub`** solution; §7 points at it.
 
 ---
 
@@ -25,8 +26,8 @@ you will:
 - [4. Versioning, in simple terms](#4-versioning-in-simple-terms)
 - [5. Part A — prove it locally first (a folder feed)](#5-part-a--prove-it-locally-first-a-folder-feed)
 - [6. Part B — publish to a real private feed (GitHub Packages)](#6-part-b--publish-to-a-real-private-feed-github-packages)
-- [7. Building a new client micro-solution (full worked example)](#7-building-a-new-client-micro-solution-full-worked-example)
-- [8. How the packages are invoked and used at runtime](#8-how-the-packages-are-invoked-and-used-at-runtime)
+- [7. Building a new client micro-solution (worked example)](#7-building-a-new-client-micro-solution-worked-example)
+- [8. How the packages are invoked at runtime](#8-how-the-packages-are-invoked-at-runtime)
 - [9. Updating a client to newer packages](#9-updating-a-client-to-newer-packages)
 - [10. Troubleshooting & environment gotchas](#10-troubleshooting--environment-gotchas)
 - [Appendix — command cheat-sheet](#appendix--command-cheat-sheet)
@@ -64,69 +65,62 @@ A client solution is a **thin two-project shell that mirrors ModularShop's own l
 (the mirror of `ModularShop.Infrastructure`) that owns the ~10-line composing `DbContext`, this client's own
 migration, and the module package references. The Infrastructure layer references **one public package per
 module** (`ModularShop.Modules.Sales`, `ModularShop.Modules.Warehouse`, …); the Host references that project
-plus the host-only concerns. Everything else lives behind those module packages and arrives through normal
-NuGet dependencies. In this version of the guide, those public module packages are **dependency-only
-meta-packages** — tiny SDK projects that ship no DLL of their own and exist only to declare which packages
-make up a module.
+plus the host-only concerns. Those public module packages are **dependency-only meta-packages** — tiny SDK
+projects that ship no DLL of their own and exist only to declare which packages make up a module.
 
 ---
 
 ## 1. What becomes a package (and what does not)
 
-| Group | Projects / files | Ships as packages? | Client references directly? | Why |
+| Group | Projects / files | Ships as a package? | Client references directly? | Why |
 |---|---|---:|---:|---|
-| **Kernel layer packages** | `Kernel.Domain`, `Kernel.Application`, `Kernel.Infrastructure`, `Kernel.Api` | ✅ Yes | Usually no | These are the real kernel assemblies. They stay as ordinary implementation packages. |
-| **Kernel hosting meta-package** | `ModularShop.Kernel.Hosting` (dependency-only project) | ✅ Yes | ✅ Yes | This is the clean public package a client host installs for `IModule`, `AddModules`, `InitializeModulesAsync`, model composition helpers, API envelope/middleware, and Identity/kernel hosting support. It ships no DLL; it just depends on the kernel layer packages. |
-| **Feature module layer packages** | `Modules.Sales.{Domain,Application,Infrastructure,Api}` and the same pattern for Warehouse/Shipping/Support | ✅ Yes | No | These keep the existing Clean Architecture projects packable and reusable. They are implementation details of the public module meta-packages. |
-| **Feature module public meta-packages** | `ModularShop.Modules.Sales`, `Warehouse`, `Shipping`, `Support` (dependency-only projects) | ✅ Yes | ✅ Yes | These are the reusable business capabilities a client picks from: one package per module. They ship no DLL, so nothing extra reaches the runtime scan. |
-| **Contracts packages** | `Modules.Sales.Contracts`, `Modules.Warehouse.Contracts` | ✅ Yes | Only when a caller/module needs the public contract directly | Contracts stay separate, tiny, and stable. They are still the only compile-time public surface between modules. Shipping/Support still have no `.Contracts` package unless another module must call them or subscribe to their public events. |
-| **The demo host** | `ModularShop.Server` | ❌ No | No | This *is* the ModularShop application. Each client writes **its own** host. |
-| **The demo's persistence** | `ModularShop.Infrastructure` (`ModularShopDbContext` + migrations) | ❌ No | No | The composing context is generic (client copies ~10 lines); the **migrations are specific to the module set**, so each client owns its own — in **its own `.Infrastructure` project** that mirrors this one (see §7). |
+| **Kernel layer packages** | `Kernel.Domain`, `Kernel.Application`, `Kernel.Infrastructure`, `Kernel.Api` | ✅ Yes | No | The real kernel assemblies — ordinary implementation packages. |
+| **Kernel hosting meta-package** | `ModularShop.Kernel.Hosting` | ✅ Yes | ✅ Yes | The clean public package a client host installs for `IModule`, `AddModules`, `InitializeModulesAsync`, model composition, API envelope/middleware, Identity/kernel hosting. Ships no DLL; just depends on the four kernel packages. |
+| **Feature module layer packages** | `Modules.Sales.{Domain,Application,Infrastructure,Api}` (same for Warehouse/Shipping/Support) | ✅ Yes | No | The Clean Architecture projects, kept packable so the meta-packages can depend on them. |
+| **Feature module meta-packages** | `ModularShop.Modules.{Sales,Warehouse,Shipping,Support}` | ✅ Yes | ✅ Yes | The reusable business capabilities a client picks from: one package per module. Ship no DLL, so nothing extra reaches the runtime scan. |
+| **Contracts packages** | `Modules.Sales.Contracts`, `Modules.Warehouse.Contracts` | ✅ Yes | Only when a caller needs the public contract directly | The only compile-time public surface between modules. Shipping/Support have none. |
+| **The demo host** | `ModularShop.Server` | ❌ No (`IsPackable=false`) | No | This *is* the ModularShop app. Each client writes **its own** host. |
+| **The demo's persistence** | `ModularShop.Infrastructure` (`ModularShopDbContext` + migrations) | ❌ No (`IsPackable=false`) | No | The composing context is generic (client copies ~10 lines); the **migrations are specific to the module set**, so each client owns its own — in its own `.Infrastructure` project (§7). |
 | **The React SPA** | `client/` | ❌ No | No | Not a .NET project; ship per client as needed. |
 
-So you publish two kinds of packages:
+So you publish **two kinds of packages**:
 
-1. **Implementation packages** generated from the existing layer projects (`.Domain`, `.Application`,
-   `.Infrastructure`, `.Api`, and `.Contracts`). These are real assemblies. They are useful dependencies
-   inside the package graph, but clients should not normally reference them directly.
-2. **Public meta-packages** (`ModularShop.Kernel.Hosting`, `ModularShop.Modules.Sales`,
-   `ModularShop.Modules.Warehouse`, …). These are dependency-only SDK projects (`IncludeBuildOutput=false`)
-   whose job is to depend on the right implementation packages and give consumers a clean install surface.
-   They ship no assembly, so they add no packaging-only DLLs to the runtime scan, and `dotnet pack` builds
-   them alongside everything else.
+1. **Implementation packages** — the real assemblies from the existing layer projects (`.Domain`,
+   `.Application`, `.Infrastructure`, `.Api`, `.Contracts`). Useful dependencies inside the graph; clients
+   don't normally reference them directly.
+2. **Public meta-packages** (`ModularShop.Kernel.Hosting`, `ModularShop.Modules.*`) — dependency-only SDK
+   projects (`IncludeBuildOutput=false`) that depend on the right implementation packages and give consumers
+   a clean install surface. They ship no assembly, so they add no packaging-only DLL to the runtime scan.
 
-This keeps the client experience business-oriented while avoiding extra packaging-only C# projects:
-
-a client chooses **modules**, not Clean Architecture layers; the feed still contains the underlying packages
-NuGet needs to restore the dependency graph.
+A client chooses **modules**, not Clean Architecture layers; the feed still contains the underlying packages
+NuGet needs to restore the graph. That's fine — the **documented install surface** stays small and
+business-oriented while the dependency graph remains visible to NuGet.
 
 ---
 
 ## 2. The packaging rule: implementation packages + dependency-only meta-packages
 
-The practical rule is:
-
 > Keep **one project = one package** for the existing implementation projects, then add **one dependency-only
-> meta-package *project* per module** for clients to reference.
+> meta-package *project* per module** (plus one for kernel hosting) for clients to reference.
 
-A meta-package here is an ordinary SDK-style `.csproj` whose only job is to declare dependencies. It sets
-`<IncludeBuildOutput>false</IncludeBuildOutput>`, so it **ships no DLL of its own** — the package is nothing
-but a list of the packages that make up the module. That buys three things at once:
+A meta-package is an ordinary SDK-style `.csproj` whose only job is to declare dependencies. Setting
+`<IncludeBuildOutput>false</IncludeBuildOutput>` means it **ships no DLL** — the package is nothing but a list
+of the packages that make up the module. That buys three things at once:
 
-- a clean install surface for clients (`install Sales`, not `install Sales.Infrastructure`);
-- a clean runtime scan (no packaging-only `ModularShop.*.dll` ever reaches a client's `bin`, so
+- a clean install surface (`install Sales`, not `install Sales.Infrastructure`);
+- a clean runtime scan (no packaging-only `ModularShop.*.dll` reaches a client's `bin`, so
   `ModuleRegistration` only ever sees real module assemblies);
 - **one toolchain and one version** — `dotnet pack ModularShop.slnx` builds these projects with everything
   else, project references become package dependencies automatically, and the single `<Version>` in
-  `Directory.Build.props` is the only place a version lives.
+  `Directory.Build.props` (§3.1) is the only place a version lives.
 
-Why not make clients reference `.Infrastructure` directly? Because `.Infrastructure` is an implementation
-layer. It happens to contain the module registration class today, but the client should not need to know
-that. The client should say, "install Sales", not "install Sales.Infrastructure".
+Why not let clients reference `.Infrastructure` directly? Because it's an implementation layer. It happens to
+contain the module registration class today, but the client shouldn't need to know that: it should say
+"install Sales", not "install Sales.Infrastructure".
 
-The package graph should look like this — each module meta-package references **only its own module** (the
-kernel hosting package plus its own `.Infrastructure`), never another module's meta-package. Everything else
-arrives transitively, exactly as inside the solution:
+Each meta-package references **only its own module** (the kernel hosting package plus its own
+`.Infrastructure`), **never another module's meta-package**. Everything else arrives transitively, exactly
+as inside the solution:
 
 ```
 ClientA.Infrastructure  ──references──►  ModularShop.Modules.Sales   (meta-package; ships no DLL)
@@ -144,32 +138,30 @@ ClientA.Infrastructure  ──references──►  ModularShop.Modules.Sales   (
 ```
 
 Sales' meta-package has just **two** project references. Sales *needs* Warehouse at runtime (it calls
-`IWarehouseApi` synchronously), but that requirement is **not** in the graph: the client references the
-Warehouse meta-package itself, and `SalesModule.RequiredModules` makes the host verify it at startup (§3.4).
-That keeps two kinds of dependency in their proper places:
+`IWarehouseApi` synchronously), but **that requirement is deliberately not in the package graph** — it lives
+in `SalesModule.RequiredModules => ["Warehouse"]`, validated at startup (§3.4). This is the one idea to
+internalise, because it keeps two kinds of dependency in their proper places:
 
 | Dependency kind | Where it belongs | Example |
 |---|---|---|
 | **Compile-time inter-module dependency** | A project reference between the real implementation projects | `Sales.Application` references `Warehouse.Contracts` only. |
-| **Runtime capability dependency** | `IModule.RequiredModules`, validated at startup; the client installs the required module's package | `SalesModule.RequiredModules => ["Warehouse"]`; ClientA references `ModularShop.Modules.Warehouse`. |
+| **Runtime capability dependency** | `IModule.RequiredModules`, validated at startup; the client installs the required module's package itself | `SalesModule.RequiredModules => ["Warehouse"]`; ClientA references `ModularShop.Modules.Warehouse`. |
 
 The `Contracts` isolation survives packaging: `Sales.Application` references only `Warehouse.Contracts`, so
 Sales still cannot name `Product` or `WarehouseDbContext`.
 
-### 2.1 How a dependency-only meta-package works
+### 2.1 Create the meta-package projects
 
 Each meta-package is a tiny SDK project built on three ideas:
 
-- `<IncludeBuildOutput>false</IncludeBuildOutput>` — pack **no** assembly; the package is dependencies only.
-- **`ProjectReference`s to the real projects** — at pack time `dotnet pack` turns each project reference into
-  a package dependency at the shared `<Version>`. You never hand-write a dependency list or a version number.
-- `<NoWarn>$(NoWarn);NU5128</NoWarn>` — silences the "package has dependencies but no library" pack warning,
-  which is expected and correct for a dependency-only package.
+- `<IncludeBuildOutput>false</IncludeBuildOutput>` — pack **no** assembly; dependencies only.
+- **`ProjectReference`s to the real projects** — at pack time each project reference becomes a package
+  dependency at the shared `<Version>`. You never hand-write a dependency list or a version number. Because a
+  reference to a *packable* project becomes a *dependency* (not an inlined DLL), a module meta-package need
+  only reference its own `.Infrastructure`; the rest comes transitively.
+- `<NoWarn>$(NoWarn);NU5128</NoWarn>` — silences the expected "package has dependencies but no library" warning.
 
-Because a `ProjectReference` to a *packable* project becomes a *dependency* (not an inlined DLL), you only
-need to reference the module's `.Infrastructure` project: its `Application`, `Domain`, `Api`, and `Contracts`
-packages come along transitively, just as they do inside the solution today. Create one project per module
-plus one kernel hosting project:
+Create one project per module plus one kernel hosting project, and add them to the solution:
 
 ```bash
 dotnet new classlib -n ModularShop.Kernel.Hosting   -o src/Kernel/ModularShop.Kernel.Hosting
@@ -186,15 +178,14 @@ dotnet sln ModularShop.slnx add \
   src/Modules/Support/ModularShop.Modules.Support/ModularShop.Modules.Support.csproj
 ```
 
-> **Delete the generated `Class1.cs` from each of the five projects** — a meta-package carries no code. (Even
-> if you forget, `IncludeBuildOutput=false` keeps the compiled DLL out of the package, so it never reaches a
-> client's `bin`; an empty project is just clearer.)
+> **Delete the generated `Class1.cs` from each project** — a meta-package carries no code. (Even if you
+> forget, `IncludeBuildOutput=false` keeps the DLL out of the package, so it never reaches a client's `bin`.)
 
-### 2.2 Kernel hosting meta-package
+### 2.2 The kernel hosting meta-package
 
 `ModularShop.Kernel.Hosting` represents the complete kernel hosting surface a client host needs — including
 `Kernel.Api` (the `AuthController` and exception middleware the host wires by name), which no module's
-`.Infrastructure` pulls in. Reference all four kernel projects:
+`.Infrastructure` pulls in. It is the one meta-package that references **all four** kernel projects:
 
 **`src/Kernel/ModularShop.Kernel.Hosting/ModularShop.Kernel.Hosting.csproj`**
 ```xml
@@ -218,21 +209,14 @@ dotnet sln ModularShop.slnx add \
 </Project>
 ```
 
-The client still writes the same usings; only the package name it installs is cleaner:
+The client still writes the same usings (`ModularShop.Kernel.Api`, `.Infrastructure`,
+`.Infrastructure.Persistence`); only the package name it installs is cleaner.
 
-```csharp
-using ModularShop.Kernel.Api;
-using ModularShop.Kernel.Infrastructure;
-using ModularShop.Kernel.Infrastructure.Persistence;
-```
+### 2.3 The four module meta-packages
 
-### 2.3 Sales module meta-package
-
-Sales references just **two** projects: the **kernel hosting** meta-package and its own **`.Infrastructure`**
-(which transitively carries `Sales.Application → Sales.Contracts` and `Warehouse.Contracts`, `Sales.Domain`,
-and `Sales.Api`). Sales *needs* Warehouse at runtime — it calls `IWarehouseApi` synchronously to place an
-order — but that requirement is declared in `SalesModule.RequiredModules => ["Warehouse"]` and validated at
-startup (§3.4), **not** by referencing the Warehouse meta-package here. The client installs Warehouse itself.
+Every module meta-package is **identical except for three things**: its `PackageId`/`Description` and the one
+`.Infrastructure` `ProjectReference` it carries. Here is the template (Sales shown); the others differ only in
+the highlighted values:
 
 **`src/Modules/Sales/ModularShop.Modules.Sales/ModularShop.Modules.Sales.csproj`**
 ```xml
@@ -242,148 +226,53 @@ startup (§3.4), **not** by referencing the Warehouse meta-package here. The cli
     <TargetFramework>net10.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <PackageId>ModularShop.Modules.Sales</PackageId>
+    <PackageId>ModularShop.Modules.Sales</PackageId>                       <!-- ← per module -->
     <Description>Sales module package for ModularShop client hosts.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
-
-    <!-- Brings Sales.Application (→ Sales.Contracts, Warehouse.Contracts), Sales.Domain, Sales.Api transitively.
-         Note it already carries Warehouse.Contracts (the compile-time surface) — but NOT the Warehouse module;
-         Sales' runtime need for Warehouse lives in SalesModule.RequiredModules, validated at startup. -->
+    <!-- The module's own .Infrastructure — brings its Application/Domain/Api/Contracts transitively. -->
     <ProjectReference Include="..\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
 ```
 
-### 2.4 Warehouse module meta-package
+| Meta-package | Own `.Infrastructure` reference | What it carries transitively | Runtime note |
+|---|---|---|---|
+| `ModularShop.Modules.Sales` | `Sales.Infrastructure` | `Sales.Application` (→ `Sales.Contracts`, `Warehouse.Contracts`), `Sales.Domain`, `Sales.Api` | **Requires Warehouse** at runtime (`IWarehouseApi`) — declared in `SalesModule.RequiredModules`, *not* referenced here. |
+| `ModularShop.Modules.Warehouse` | `Warehouse.Infrastructure` | `Warehouse.{Application,Domain,Api,Contracts}` and — for the `OrderPlaced` handler — `Sales.Contracts` | No required modules: exposes products/stock without Sales; merely *reacts* to `OrderPlaced`. |
+| `ModularShop.Modules.Shipping` | `Shipping.Infrastructure` | `Shipping.{Application,Domain,Api}` and `Sales.Contracts` (for the event type) | No required modules: only *reacts* to `OrderPlaced`; runs fine without Sales. |
+| `ModularShop.Modules.Support` | `Support.Infrastructure` | `Support.{Application,Domain,Api}` | No contracts package, no required modules — fully independent. |
 
-Warehouse references the kernel hosting meta-package and its own `.Infrastructure`. That transitively carries
-`Warehouse.Contracts` (which holds `IWarehouseApi`) and — because `Warehouse.Infrastructure` handles the
-`OrderPlaced` event — `Sales.Contracts`. Warehouse does **not** reference the Sales meta-package: it can
-expose products and stock without Sales, and merely reacts when Sales publishes an event.
+That's why **no module meta-package ever references another module's meta-package**: cross-module *runtime*
+needs live in `RequiredModules` (§3.4), and cross-module *compile-time* needs are already satisfied by the
+`.Contracts` package a module's `.Application`/`.Infrastructure` pulls in.
 
-**`src/Modules/Warehouse/ModularShop.Modules.Warehouse/ModularShop.Modules.Warehouse.csproj`**
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
+### 2.4 The contracts rule
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <PackageId>ModularShop.Modules.Warehouse</PackageId>
-    <Description>Warehouse module package for ModularShop client hosts.</Description>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
-
-    <!-- Brings Warehouse.Application, Warehouse.Domain, Warehouse.Api, Warehouse.Contracts and — for the
-         OrderPlaced handler — Sales.Contracts, all transitively. -->
-    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
-  </ItemGroup>
-
-</Project>
-```
-
-### 2.5 Shipping module meta-package
-
-Like Warehouse, Shipping only **reacts** to Sales' `OrderPlaced` event — it runs fine without Sales — so it
-references just the kernel hosting package and its own `.Infrastructure` (which already carries
-`Sales.Contracts` transitively for the event type) and declares **no** required modules.
-
-**`src/Modules/Shipping/ModularShop.Modules.Shipping/ModularShop.Modules.Shipping.csproj`**
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <PackageId>ModularShop.Modules.Shipping</PackageId>
-    <Description>Shipping module package for ModularShop client hosts.</Description>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
-    <ProjectReference Include="..\ModularShop.Modules.Shipping.Infrastructure\ModularShop.Modules.Shipping.Infrastructure.csproj" />
-  </ItemGroup>
-
-</Project>
-```
-
-### 2.6 Support module meta-package
-
-Support is deliberately independent — the kernel hosting meta-package plus its own `.Infrastructure`, nothing
-else. It has no contracts package and no module dependency.
-
-**`src/Modules/Support/ModularShop.Modules.Support/ModularShop.Modules.Support.csproj`**
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <PackageId>ModularShop.Modules.Support</PackageId>
-    <Description>Support module package for ModularShop client hosts.</Description>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
-    <ProjectReference Include="..\ModularShop.Modules.Support.Infrastructure\ModularShop.Modules.Support.Infrastructure.csproj" />
-  </ItemGroup>
-
-</Project>
-```
-
-### 2.7 Contracts rule
-
-Keep contracts separate. Do not merge them into a meta-package as the only copy.
-
-The correct rule is:
+Keep contracts separate; never let a meta-package be the only copy of a contract.
 
 | Case | What to depend on |
 |---|---|
-| A module compiles against another module's public surface | The other module's `*.Contracts` package only. |
+| A module compiles against another module's public surface | The other module's `*.Contracts` package only (e.g. `Sales.Application` → `Warehouse.Contracts`). |
 | A meta-package represents everything needed to install that module | Its own `.Infrastructure` (which carries its `*.Contracts` transitively). |
-| A module cannot run without another module being present | Declare it in `IModule.RequiredModules` (host-validated at startup); the client installs that module's meta-package so its DLLs are in `bin`. **A meta-package never references another module's meta-package.** |
-| A module only reacts to another module's event and can still be useful without that module | The event publisher's `*.Contracts` package only (no `RequiredModules` entry). |
+| A module cannot run without another being present | Declare it in `IModule.RequiredModules` (host-validated at startup); the client installs that module's meta-package. **Never** reference another module's meta-package. |
+| A module only *reacts* to another module's event and is useful without it | The event publisher's `*.Contracts` package only (no `RequiredModules` entry) — e.g. `Warehouse.Infrastructure` → `Sales.Contracts`. |
 
-So:
-
-- `Sales.Application` references `Warehouse.Contracts` only.
-- `SalesModule.RequiredModules => ["Warehouse"]` because Sales needs Warehouse at runtime — but the `ModularShop.Modules.Sales` meta-package does **not** reference `ModularShop.Modules.Warehouse`; the client installs Warehouse.
-- `Warehouse.Infrastructure` references `Sales.Contracts` to handle `OrderPlaced`, but `WarehouseModule` declares no required modules — Warehouse runs without Sales.
-- `Support` has no contracts package and no required modules until something external needs a Support public contract.
-
-### 2.8 Keep implementation packages private-by-convention
-
-Do not mark implementation packages as non-packable. They are useful because the meta-packages depend on
-them. Instead, document the convention clearly:
-
-| Package type | Example | Client references directly? |
-|---|---|---|
-| Public hosting meta-package | `ModularShop.Kernel.Hosting` | ✅ Yes |
-| Public module meta-package | `ModularShop.Modules.Sales` | ✅ Yes |
-| Contract package | `ModularShop.Modules.Warehouse.Contracts` | Only when a module/client needs the public contract directly |
-| Implementation package | `ModularShop.Modules.Sales.Infrastructure` | No |
-| Layer package | `ModularShop.Modules.Sales.Domain`, `.Application`, `.Api` | No |
-
-The feed will contain more packages than a client normally references. That is okay. The important part is
-that the **documented install surface** is small and business-oriented, while the dependency graph remains
-visible to NuGet.
+The implementation/layer packages stay **packable** (the meta-packages depend on them) but
+**private-by-convention**: the feed contains more packages than a client references, and that's fine — only
+the meta-packages and the occasional `*.Contracts` are the documented public surface.
 
 ---
 
 ## 3. One-time setup in the ModularShop solution
 
 You need to (a) give every package a name, version, and author, (b) mark the two host projects as
-"don't pack me," (c) add the dependency-only meta-package projects, and (d) add startup validation so
-clients get a clear error when they select an incomplete module set. Central Package Management
-(`Directory.Packages.props`) is **already** enabled in this repo, so third-party versions are handled.
+"don't pack me," (c) add the meta-package projects (§2), and (d) add startup validation so clients get a
+clear error when they select an incomplete module set. Central Package Management (`Directory.Packages.props`)
+is **already** enabled in this repo, so third-party versions are handled.
 
 ### 3.1 Add a `Directory.Build.props` at the repo root
 
@@ -408,8 +297,7 @@ Create **`/ModularShop/Directory.Build.props`** (next to `Directory.Packages.pro
 
     <!-- Generate XML documentation for IntelliSense. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Optional: don't warn about missing XML comments while documentation is being added. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>   <!-- don't warn about missing XML comments while docs are added -->
 
     <!-- Step-debug into the packages from ANY feed: embed the PDB into each DLL (no separate .snupkg, which
          GitHub Packages could not serve anyway), plus SourceLink metadata so a debugger can fetch the source. -->
@@ -429,62 +317,51 @@ Create **`/ModularShop/Directory.Build.props`** (next to `Directory.Packages.pro
 
 The demo host and its migrations must **not** be published. Add one line to each `<PropertyGroup>`:
 
-**`src/ModularShop.Server/ModularShop.Server.csproj`**
 ```xml
-<PropertyGroup>
-  <TargetFramework>net10.0</TargetFramework>
-  <!-- ...existing... -->
-  <IsPackable>false</IsPackable>   <!-- the demo web host is never a package -->
-</PropertyGroup>
+<!-- src/ModularShop.Server/ModularShop.Server.csproj -->
+<IsPackable>false</IsPackable>   <!-- the demo web host is never a package -->
+```
+```xml
+<!-- src/ModularShop.Infrastructure/ModularShop.Infrastructure.csproj -->
+<IsPackable>false</IsPackable>   <!-- demo migrations are host-specific; each client owns its own -->
 ```
 
-**`src/ModularShop.Infrastructure/ModularShop.Infrastructure.csproj`**
-```xml
-<PropertyGroup>
-  <TargetFramework>net10.0</TargetFramework>
-  <!-- ...existing... -->
-  <IsPackable>false</IsPackable>   <!-- demo migrations are host-specific; each client owns its own -->
-</PropertyGroup>
-```
-
-Every other existing implementation project stays packable by default, and so do the five dependency-only
-meta-package projects — but because they set `IncludeBuildOutput=false`, their packages contain no assembly.
-Because the real module assemblies keep the `ModularShop.*` name, the runtime scan (`ModuleRegistration.cs`,
-`Directory.EnumerateFiles(..., "ModularShop.*.dll")`) finds them in a client's `bin` exactly as it does today,
-while the meta-packages contribute no DLL and therefore no extra `IModule` type. *(If you later rebrand to,
-say, `TNEX.*`, rename the projects **and** change that one scan pattern.)*
+Every other implementation project stays packable by default, and so do the five meta-package projects — but
+because they set `IncludeBuildOutput=false`, their packages contain no assembly. Because the real module
+assemblies keep the `ModularShop.*` name, the runtime scan (`ModuleRegistration.cs`,
+`Directory.EnumerateFiles(..., "ModularShop.*.dll")`) finds them in a client's `bin` exactly as today, while
+the meta-packages contribute no DLL and therefore no extra `IModule` type. *(If you later rebrand to, say,
+`TNEX.*`, rename the projects **and** change that one scan pattern.)*
 
 ### 3.3 One command packs everything
 
 Because the meta-package projects are part of the solution, **one `dotnet pack ModularShop.slnx` produces the
-implementation packages *and* the meta-packages** — no second tool, no separate script. `dotnet pack` builds
-each meta project, and its `ProjectReference`s become the package's dependencies at the shared `<Version>`.
-
-A folder feed then contains files like:
+implementation packages *and* the meta-packages** — no second tool, no separate script. A folder feed then
+contains files like:
 
 ```
 ModularShop.Kernel.Domain.1.0.0.nupkg
 ModularShop.Kernel.Application.1.0.0.nupkg
 ModularShop.Kernel.Infrastructure.1.0.0.nupkg
 ModularShop.Kernel.Api.1.0.0.nupkg
-ModularShop.Kernel.Hosting.1.0.0.nupkg        ← meta-package (no DLL inside)
+ModularShop.Kernel.Hosting.1.0.0.nupkg              ← meta-package (no DLL inside)
 
 ModularShop.Modules.Sales.Domain.1.0.0.nupkg
 ModularShop.Modules.Sales.Application.1.0.0.nupkg
 ModularShop.Modules.Sales.Contracts.1.0.0.nupkg
 ModularShop.Modules.Sales.Infrastructure.1.0.0.nupkg
 ModularShop.Modules.Sales.Api.1.0.0.nupkg
-ModularShop.Modules.Sales.1.0.0.nupkg         ← meta-package (no DLL inside)
+ModularShop.Modules.Sales.1.0.0.nupkg               ← meta-package (no DLL inside)
 
 ModularShop.Modules.Warehouse.Contracts.1.0.0.nupkg
-ModularShop.Modules.Warehouse.1.0.0.nupkg     ← meta-package
-ModularShop.Modules.Shipping.1.0.0.nupkg      ← meta-package
-ModularShop.Modules.Support.1.0.0.nupkg       ← meta-package
+ModularShop.Modules.Warehouse.1.0.0.nupkg           ← meta-package
+ModularShop.Modules.Shipping.1.0.0.nupkg            ← meta-package
+ModularShop.Modules.Support.1.0.0.nupkg             ← meta-package
 ... implementation packages for Warehouse, Shipping and Support ...
 ```
 
-The meta-packages are the packages clients install. The implementation packages are still published because
-NuGet needs them as the meta-packages' dependencies.
+The meta-packages are the packages clients install; the implementation packages are still published because
+NuGet needs them as the meta-packages' dependencies. (The two `IsPackable=false` host projects are absent.)
 
 > **Sanity check:** a `.nupkg` is a zip — open `ModularShop.Modules.Sales.1.0.0.nupkg` and you should find a
 > `.nuspec` with a `<dependencies>` list and **no `lib/` folder**. That empty `lib/` is
@@ -493,109 +370,33 @@ NuGet needs them as the meta-packages' dependencies.
 ### 3.4 Add startup validation for required modules
 
 Once clients can choose any module combination, the host should fail fast when the selected set is
-incomplete. For example, Sales uses `IWarehouseApi`, so `Sales` requires `Warehouse`. Without validation, a
-client could enable `Sales` alone and only discover the mistake during the first order request.
+incomplete — e.g. `Sales` enabled without `Warehouse`, even though Sales calls `IWarehouseApi` synchronously.
+This is the `RequiredModules` metadata from §2, and **it already exists in the kernel** (`IModule` +
+`ModuleRegistration.AddModules`; only `SalesModule` declares a requirement today — `["Warehouse"]`). It is
+described in full in **[decision-log D18](./decision-log.md)** and [architecture.md §5](./architecture.md);
+the essentials for packaging:
 
-This `RequiredModules` metadata (§2) is the single place a cross-module runtime requirement lives — enforced
-the same way whether modules arrive by project reference or NuGet package.
+- `IModule` exposes `IReadOnlyCollection<string> RequiredModules => Array.Empty<string>()`. A module that
+  can't run alone overrides it (`SalesModule.RequiredModules => ["Warehouse"]`); Warehouse/Shipping/Support
+  leave the default because they either only *react* to events or are independent.
+- `ModuleRegistration.AddModules` runs `ValidateRequiredModules` **after** selection and **before** any
+  registration or migration, throwing a single aggregated `InvalidOperationException` when the set is
+  incomplete.
 
-Add it to the kernel's `IModule` contract:
-
-```csharp
-public interface IModule
-{
-    string Name { get; }
-    Type ContextType { get; }
-    bool IsFoundational => false;
-
-    // Names of feature modules that must be enabled together with this module.
-    IReadOnlyCollection<string> RequiredModules => Array.Empty<string>();
-
-    void Register(IServiceCollection services, IConfiguration configuration);
-}
-```
-
-Then declare dependencies in the modules that need them. Sales needs Warehouse because it calls
-`IWarehouseApi` synchronously when placing an order:
-
-```csharp
-public sealed class SalesModule : IModule
-{
-    public string Name => "Sales";
-    public Type ContextType => typeof(SalesDbContext);
-    public IReadOnlyCollection<string> RequiredModules => ["Warehouse"];
-
-    public void Register(IServiceCollection services, IConfiguration configuration)
-    {
-        // existing Sales registrations
-    }
-}
-```
-
-Warehouse, Shipping and Support declare no required modules — Warehouse and Shipping only *react* to Sales'
-`OrderPlaced` event (they run fine without it), and Support is fully independent. So they keep the default:
-
-```csharp
-public sealed class ShippingModule : IModule
-{
-    public string Name => "Shipping";
-    public Type ContextType => typeof(ShippingDbContext);
-    // no RequiredModules override — reacts to OrderPlaced only if Sales is present
-
-    public void Register(IServiceCollection services, IConfiguration configuration) { /* … */ }
-}
-```
-
-Finally, validate the selected modules inside `ModuleRegistration.AddModules`, after discovery/selection and before registration:
-
-```csharp
-public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration)
-{
-    // SelectModules already returns the chosen set, foundational-first — so no re-ordering here.
-    var modules = SelectModules(DiscoverModules(), configuration);
-    ValidateRequiredModules(modules);
-
-    foreach (var module in modules)
-    {
-        services.AddSingleton<IModule>(module);
-        module.Register(services, configuration);
-    }
-
-    return services;
-}
-
-private static void ValidateRequiredModules(IReadOnlyList<IModule> selected)
-{
-    var selectedNames = selected.Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-    var errors = selected
-        .SelectMany(module => module.RequiredModules
-            .Where(required => !selectedNames.Contains(required))
-            .Select(required => $"Module '{module.Name}' requires module '{required}', but '{required}' is not enabled."))
-        .ToArray();
-
-    if (errors.Length > 0)
-        throw new InvalidOperationException(
-            "Invalid module selection:" + Environment.NewLine + string.Join(Environment.NewLine, errors));
-}
-```
-
-Now a bad configuration fails at startup with a clear message:
+So a bad configuration fails at startup with a clear message instead of a DI resolution error on the first
+order:
 
 ```json
 "Modules": [ "Sales" ]
 ```
-
 ```
 Invalid module selection:
 Module 'Sales' requires module 'Warehouse', but 'Warehouse' is not enabled.
 ```
 
-This validation belongs in the kernel because it protects every host: the demo host, every client
-micro-solution, and every future package-based deployment. It is already implemented in the ModularShop repo
-(kernel `IModule` + `ModuleRegistration`; only `SalesModule` declares a requirement today) — see
-decision-log **D18**.
-
+This validation lives in the **kernel** so it protects every host identically — the demo, every client
+micro-solution, and every future package-based deployment — independent of how the DLLs arrive (project
+reference or NuGet package). That is why the requirement lives here and **not** in the package graph.
 
 ---
 
@@ -609,88 +410,67 @@ Every package carries a version like **`1.4.2`** = **major . minor . patch** (Se
 | New feature, old stuff still works | **minor** `1.4.x → 1.5.0` | Safe. |
 | Something changed that could break callers | **major** `1.x → 2.0.0` | Upgrade **on purpose**, when ready. |
 
-**Start with one version for the whole suite** (the single `<Version>` in `Directory.Build.props`). It is
-the simplest thing that works: bump one line, republish, done.
+**Start with one version for the whole suite** (the single `<Version>` in `Directory.Build.props`). It is the
+simplest thing that works: bump one line, republish, done.
 
 Two packages deserve extra care when you *do* make breaking changes:
 
 - **`Kernel.*`** — everything depends on it, so a major kernel bump ripples to every module. Change rarely.
-- **`*.Contracts`** — these are the promises *between* modules. Changing `IWarehouseApi` forces Warehouse
-  and every caller to move together. Keep them small and stable.
+- **`*.Contracts`** — the promises *between* modules. Changing `IWarehouseApi` forces Warehouse and every
+  caller to move together. Keep them small and stable.
 
-> **Later (optional): version a single module on its own.** Remove that module's reliance on the global
-> `<Version>` by putting a `<Version>2.0.0</Version>` in *its* `.csproj` (it overrides the root value). Only
-> do this once you actually need independent release cadences; one-version-for-all is fine for a long time.
+> **Later (optional): version a single module on its own** by putting a `<Version>2.0.0</Version>` in *its*
+> `.csproj` (it overrides the root value). Only do this once you actually need independent release cadences.
 
 ---
 
 ## 5. Part A — prove it locally first (a folder feed)
 
 **Before touching any server**, verify the whole pack → install → run loop on your own machine using a
-**local folder as a feed**. A folder feed is just a directory full of `.nupkg` files — zero accounts, zero
-auth. If this works, the only thing left for the "real" feed is authentication.
+**local folder as a feed** — a directory full of `.nupkg` files, zero accounts, zero auth. If this works, the
+only thing left for the "real" feed is authentication.
 
 ### 5.1 Create the feed folder and pack into it
 
 ```bash
-# From the ModularShop repo root. Use a Windows-style path because dotnet here is the Windows SDK
-# (see §10). This makes ONE folder that will hold every .nupkg — implementation and meta-packages together.
+# From the ModularShop repo root. Use a Windows-style path because dotnet here is the Windows SDK (§10).
+# This makes ONE folder that holds every .nupkg — implementation and meta-packages together.
 dotnet pack ModularShop.slnx -c Release -o "D:/TNEX/LocalFeed"
 ```
 
-`dotnet pack` builds the solution and drops one `.nupkg` per **packable** project into `D:/TNEX/LocalFeed`
-(no separate `.snupkg` — symbols are embedded in each DLL, see §3.1) — including the five dependency-only
-meta-package projects, whose `.nupkg`s contain dependencies but no assembly. You should see files like:
-
-```
-ModularShop.Kernel.Domain.1.0.0.nupkg
-ModularShop.Kernel.Application.1.0.0.nupkg
-ModularShop.Kernel.Infrastructure.1.0.0.nupkg
-ModularShop.Kernel.Api.1.0.0.nupkg
-ModularShop.Kernel.Hosting.1.0.0.nupkg
-ModularShop.Modules.Sales.Domain.1.0.0.nupkg
-ModularShop.Modules.Sales.Application.1.0.0.nupkg
-ModularShop.Modules.Sales.Contracts.1.0.0.nupkg
-ModularShop.Modules.Sales.Infrastructure.1.0.0.nupkg
-ModularShop.Modules.Sales.Api.1.0.0.nupkg
-ModularShop.Modules.Sales.1.0.0.nupkg
-... (Warehouse, Shipping, Support implementation + meta-packages) ...
-```
-
-(The two host projects are absent — that's the `IsPackable=false` working.)
+`dotnet pack` drops one `.nupkg` per **packable** project into `D:/TNEX/LocalFeed` (no separate `.snupkg` —
+symbols are embedded, §3.1), producing exactly the files listed in §3.3. The two host projects are absent —
+that's `IsPackable=false` working.
 
 ### 5.2 Register the folder as a NuGet source
 
-You can do this once, globally, or (better) per-client via a `nuget.config` (shown in §7). To do it
-globally now for testing:
+Do this per-client via a `nuget.config` (§7.2) or, just for testing, globally:
 
 ```bash
 dotnet nuget add source "D:/TNEX/LocalFeed" --name local-modularshop
 dotnet nuget list source        # confirm it appears
 ```
 
-That's it — you can now `dotnet add package ModularShop.Modules.Sales` from any project on
-this machine. **Jump to §7** to build a client against it. Once the client runs locally, come back and do
-Part B to publish to the shared feed.
+You can now `dotnet add package ModularShop.Modules.Sales` from any project on this machine. **Jump to §7**
+to build a client against it; once it runs locally, come back and do Part B to publish to the shared feed.
 
 ---
 
 ## 6. Part B — publish to a real private feed (GitHub Packages)
 
-**Why GitHub Packages?** It is **free**, there is **no server to install or maintain**, it lives right next
-to your code, and it authenticates with a normal GitHub token. (Alternatives: **Azure Artifacts** — also
-free, best if your company already uses Azure DevOps; or **BaGetter** — free but *you* host the server.
-GitHub Packages is the least work to start.)
+**Why GitHub Packages?** It is **free**, there is **no server to install or maintain**, it lives next to your
+code, and it authenticates with a normal GitHub token. (Alternatives: **Azure Artifacts** — also free, best
+if you already use Azure DevOps; or **BaGetter** — free but *you* host the server. GitHub Packages is the
+least work to start.)
 
 ### 6.1 Create a Personal Access Token (PAT)
 
 GitHub Packages authenticates with a **classic** PAT (not the fine-grained kind, for NuGet):
 
-1. GitHub → your avatar → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens
+1. GitHub → avatar → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens
    (classic)** → **Generate new token (classic)**.
-2. Scopes: tick **`write:packages`** (this also includes `read:packages`) and **`repo`** if the repo is
-   private.
-3. Copy the token (starts with `ghp_…`). Store it in an environment variable so it never lands in a file:
+2. Scopes: tick **`write:packages`** (includes `read:packages`) and **`repo`** if the repo is private.
+3. Copy the token (`ghp_…`) and store it in an environment variable so it never lands in a file:
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx     # add to ~/.bashrc for convenience
@@ -701,19 +481,19 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx     # add to ~/.bashrc for convenie
 The feed URL is `https://nuget.pkg.github.com/OWNER/index.json`, where `OWNER` is your org or username.
 
 ```bash
-# Push every package that Part A produced. --skip-duplicate lets you re-run without errors.
+# Push every package Part A produced. --skip-duplicate lets you re-run without errors.
 dotnet nuget push "D:/TNEX/LocalFeed/*.nupkg" \
   --source "https://nuget.pkg.github.com/YOUR-ORG/index.json" \
   --api-key "$GITHUB_TOKEN" \
   --skip-duplicate
 ```
 
-That uploads all generated packages: the implementation packages, the contract packages, and the public meta-packages. Refresh your GitHub org/profile **Packages** tab and they will be listed.
-Publishing a new version later is the same command after bumping `<Version>` and re-running `dotnet pack`.
+That uploads the implementation, contract, and public meta-packages. Refresh your GitHub **Packages** tab and
+they'll be listed. Publishing a new version later is the same command after bumping `<Version>` and re-packing.
 
-### 6.3 (Recommended, but optional) automate it with GitHub Actions
+### 6.3 (Optional) automate it with GitHub Actions
 
-Instead of packing/pushing by hand, let CI do it whenever you push a version tag like `v1.0.0`. Create
+Let CI pack/push whenever you push a version tag like `v1.0.0`. Create
 **`.github/workflows/publish-packages.yml`**:
 
 ```yaml
@@ -746,23 +526,23 @@ Actions automatically — no PAT needed inside CI.)
 
 ---
 
-## 7. Building a new client micro-solution (full worked example)
+## 7. Building a new client micro-solution (worked example)
 
-Here is a complete new client, **`ClientA`**, that wants the **ordering flow** (Sales + Warehouse +
-Shipping) but **not** Support. It references *packages only* — no ModularShop source.
+> **The complete, runnable version of this section already exists** as the sibling **`OrderingHub`** solution
+> (built entirely from these packages: Sales + Warehouse, no Shipping/Support). Read this section for the
+> *shape and rationale*, then look at `OrderingHub/` for a real copy of every file below.
 
 A micro-solution is a **two-project solution that mirrors ModularShop's own layering** — not a single Host
-project. It has:
+project:
 
 - a **`ClientA.Infrastructure`** class library (the mirror of `ModularShop.Infrastructure`) that owns the
   composing `AppDbContext` and this client's own EF Core migrations, and installs **one module meta-package
   per capability** it composes. It is the one place that knows the concrete module set.
-- a thin **`ClientA.Host`** web project that references the Infrastructure project and adds only the
-  host-only concerns (the SQL provider, EF tooling, Swagger). It wires HTTP; it holds no persistence code.
+- a thin **`ClientA.Host`** web project that references the Infrastructure project and adds only the host-only
+  concerns (the SQL provider, EF tooling, Swagger). It wires HTTP; it holds no persistence code.
 
-This is the required shape. Keeping the `DbContext` and migrations in a dedicated Infrastructure layer keeps
-the host thin and matches ModularShop exactly, so a client is structurally identical to the demo — just with
-a different module subset.
+Keeping the `DbContext` and migrations in a dedicated Infrastructure layer keeps the host thin and matches
+ModularShop exactly, so a client is structurally identical to the demo — just with a different module subset.
 
 ### 7.1 Folder layout
 
@@ -773,22 +553,19 @@ ClientA/
 ├─ Directory.Packages.props          # which versions (Central Package Management)
 ├─ ClientA.Infrastructure/           # composition/persistence layer — mirrors ModularShop.Infrastructure
 │  ├─ ClientA.Infrastructure.csproj  #   installs one module meta-package per capability (+ Kernel.Hosting)
-│  ├─ Persistence/
-│  │  └─ AppDbContext.cs             #   the ~10-line composing context
-│  └─ Migrations/                    #   THIS client's own migration (generated in 7.6)
+│  ├─ Persistence/AppDbContext.cs    #   the ~10-line composing context
+│  └─ Migrations/                    #   THIS client's own migration (generated in 7.5)
 └─ ClientA.Host/
    ├─ ClientA.Host.csproj            # references the Infrastructure project + host-only concerns
    ├─ Program.cs                     # the composition root (copied from ModularShop.Server)
    ├─ appsettings.json               # connection string + "Modules" selection
    ├─ appsettings.Development.json    # dev logging
-   └─ Properties/
-      └─ launchSettings.json         # launches the browser at /swagger, just like ModularShop.Server
+   └─ Properties/launchSettings.json # launches the browser at /swagger, like ModularShop.Server
 ```
 
 ### 7.2 `nuget.config` — point at the feed
 
-Put this at the **ClientA root**. It tells NuGet to look at GitHub Packages (and, while testing, the local
-folder). Relative paths in `nuget.config` resolve relative to the file, which sidesteps WSL path issues.
+Put this at the **ClientA root**. Relative paths resolve relative to the file, which sidesteps WSL path issues.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -796,8 +573,8 @@ folder). Relative paths in `nuget.config` resolve relative to the file, which si
   <packageSources>
     <clear />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <!-- While testing locally (Part A). Relative to THIS file's folder; assumes ClientA/ sits next to
-         the LocalFeed/ folder (both under D:/TNEX). Delete this line once you use the real feed. -->
+    <!-- While testing locally (Part A). Relative to THIS file; assumes ClientA/ sits next to LocalFeed/
+         (both under D:/TNEX). Delete this line once you use the real feed. -->
     <add key="local-modularshop" value="../LocalFeed" />
     <!-- The private feed (Part B). -->
     <add key="github" value="https://nuget.pkg.github.com/YOUR-ORG/index.json" />
@@ -806,8 +583,7 @@ folder). Relative paths in `nuget.config` resolve relative to the file, which si
   <packageSourceCredentials>
     <github>
       <add key="Username" value="YOUR-GITHUB-USERNAME" />
-      <!-- Reads the token from the environment; never hard-code it here. -->
-      <add key="ClearTextPassword" value="%GITHUB_TOKEN%" />
+      <add key="ClearTextPassword" value="%GITHUB_TOKEN%" />   <!-- reads the token from the env -->
     </github>
   </packageSourceCredentials>
 </configuration>
@@ -838,26 +614,21 @@ Central Package Management on the client side too, so versions live in one file:
 ```
 
 > You only list packages you reference **directly**. Transitive ones (the `.Infrastructure`, `.Application`,
-> `.Domain`, `.Contracts`, `.Api`, Identity, MediatR, Ardalis.Result … packages) are resolved automatically
-> from the public module packages' own dependencies — you don't name them here.
->
-> List each module you want, including required ones: ClientA installs `Warehouse` itself (Sales needs it —
-> `SalesModule.RequiredModules` checks it's enabled at startup, §3.4).
+> `.Domain`, `.Contracts`, `.Api`, Identity, MediatR, Ardalis.Result … packages) resolve automatically.
+> List each module you want, **including required ones**: ClientA installs `Warehouse` itself (Sales needs
+> it — `SalesModule.RequiredModules` checks it's enabled at startup, §3.4).
 
-### 7.4 The two `.csproj` files — the references
+### 7.4 The two `.csproj` files
 
-Note there is **no** `<Version>` on each `PackageReference` — that's Central Package Management doing its
-job.
+Note there is **no** `<Version>` on each `PackageReference` — that's Central Package Management doing its job.
 
-**`ClientA.Infrastructure.csproj`** — the persistence/composition layer. It installs **one module
-meta-package per capability** this client composes (the concrete module set), plus the kernel hosting
-package that `AppDbContext` compiles against. This is the mirror of `ModularShop.Infrastructure`; the module
-packages' `Infrastructure/Application/Domain/Contracts/Api` and EF Core (with the SqlServer provider the
-migrations are written against) all come along transitively.
+**`ClientA.Infrastructure.csproj`** — the persistence/composition layer, the mirror of
+`ModularShop.Infrastructure`. It installs **one module meta-package per capability** plus the kernel hosting
+package that `AppDbContext` compiles against; the modules' layer packages and EF Core (with the SqlServer
+provider the migrations are written against) come along transitively.
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -867,31 +638,27 @@ migrations are written against) all come along transitively.
 
   <ItemGroup>
     <PackageReference Include="ModularShop.Kernel.Hosting" />
-
     <!-- One public meta-package per module this client wants. -->
     <PackageReference Include="ModularShop.Modules.Sales" />
     <PackageReference Include="ModularShop.Modules.Warehouse" />
     <PackageReference Include="ModularShop.Modules.Shipping" />
   </ItemGroup>
-
 </Project>
 ```
 
-**`ClientA.Host.csproj`** — the thin web host. It references the Infrastructure project (that transitively
+**`ClientA.Host.csproj`** — the thin web host. It references the Infrastructure project (which transitively
 carries every module DLL into `bin` for the runtime scan) and adds only the host-only concerns. It keeps
-`ModularShop.Kernel.Hosting` referenced by name because `Program.cs` uses it directly (`AddModules`,
-`InitializeModulesAsync`, `ExceptionHandlingMiddleware`) — exactly as `ModularShop.Server` references
-`ModularShop.Kernel.Api` by name even though it also arrives transitively.
+`ModularShop.Kernel.Hosting` referenced by name because `Program.cs` uses it directly — exactly as
+`ModularShop.Server` references `ModularShop.Kernel.Api` by name even though it also arrives transitively.
+It turns off implicit controller discovery to match the demo host (routes come from each module registering
+its own `.Api` application part, §8 / decision-log D13).
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Match the demo host: controllers come only from each module registering its own .Api as an MVC
-         application part in Register (§8) — not from the SDK's implicit discovery. -->
     <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
   </PropertyGroup>
 
@@ -902,15 +669,13 @@ carries every module DLL into `bin` for the runtime scan) and adds only the host
   <ItemGroup>
     <!-- Used by name in Program.cs; declared directly even though it also arrives transitively. -->
     <PackageReference Include="ModularShop.Kernel.Hosting" />
-
-    <!-- Host concerns: the SQL provider (Program.cs calls UseSqlServer), EF migration tooling, and Swagger. -->
+    <!-- Host concerns: the SQL provider (Program.cs calls UseSqlServer), EF migration tooling, Swagger. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
-
 </Project>
 ```
 
@@ -923,11 +688,11 @@ The **`ClientA.slnx`** ties the two together:
 </Solution>
 ```
 
-### 7.5 `AppDbContext.cs` and `Program.cs` — the only code you write
+### 7.5 The only code you write — `AppDbContext`, `Program.cs`, config
 
 **`ClientA.Infrastructure/Persistence/AppDbContext.cs`** — a near-verbatim copy of ModularShop's generic host
-context (`ModularShopDbContext`), living in this client's Infrastructure layer alongside the migrations it
-owns. It owns no entities; it just asks the registered modules to compose their models:
+context, living in this client's Infrastructure layer alongside the migrations it owns. It holds no entities;
+it just asks the registered modules to compose their models:
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -936,9 +701,6 @@ using ModularShop.Kernel.Infrastructure.Persistence;     // ApplyModuleModels(..
 
 namespace ClientA.Infrastructure.Persistence;
 
-// The single runtime DbContext. Holds NO entities — it composes the model from whichever modules the
-// "Modules" config selected (the kernel is always one of them). It lives in the Infrastructure layer
-// alongside the migrations it owns — exactly like ModularShopDbContext.
 public sealed class AppDbContext : DbContext
 {
     private readonly IReadOnlyList<IModule> _modules;
@@ -951,52 +713,14 @@ public sealed class AppDbContext : DbContext
 }
 ```
 
-**`Program.cs`** — the composition root, copied from `ModularShop.Server/Program.cs` with the context type
-swapped to `AppDbContext` and the connection-string key renamed. Everything module-specific still comes from
-`AddModules`:
+**`ClientA.Host/Program.cs`** is `ModularShop.Server/Program.cs` copied verbatim with just **two changes**:
+the context type becomes `AppDbContext`, and the connection-string key is renamed (e.g. `"AppDb"`). Everything
+module-specific still comes from `AddModules` / `InitializeModulesAsync`, so nothing else changes. See
+`OrderingHub.Host/Program.cs` for the exact file, or [architecture.md §5](./architecture.md) for the annotated
+original.
 
-```csharp
-using Microsoft.EntityFrameworkCore;
-using ModularShop.Kernel.Api;             // ExceptionHandlingMiddleware
-using ModularShop.Kernel.Infrastructure;      // AddModules, InitializeModulesAsync
-using ClientA.Infrastructure.Persistence;     // AppDbContext (lives in the Infrastructure layer)
-
-var builder = WebApplication.CreateBuilder(args);
-
-var connectionString = builder.Configuration.GetConnectionString("AppDb");
-
-// One host context, pointed at this client's database + its own migration history.
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "dbo")));
-
-// Every service (repositories, Identity stores) depends on the base DbContext — alias it to ours.
-builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AppDbContext>());
-
-// Discover the module packages in bin, keep the ones named in "Modules", validate the set, and let each
-// register itself — including registering its OWN .Api assembly as an MVC application part.
-builder.Services.AddModules(builder.Configuration);
-
-builder.Services.AddControllers();          // module controllers came from each module's Register (above), not implicit discovery
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var app = builder.Build();
-
-// Create/upgrade this client's database, then run each selected module's seeder in order.
-await app.Services.InitializeModulesAsync();
-
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-
-app.Run();
-```
-
-**`appsettings.json`** — the connection string and the **module selection**. This is where a client decides
-which capabilities it runs:
+**`ClientA.Host/appsettings.json`** — the connection string and the **module selection**. This is where a
+client decides which capabilities it runs:
 
 ```json
 {
@@ -1009,13 +733,12 @@ which capabilities it runs:
 }
 ```
 
-> `"Modules"` lists **feature** modules only. The kernel is foundational and always loads. Here Support is
-> omitted, so this client has no `support` schema and no ticket endpoints. Omit the `"Modules"` key entirely
-> to load **every** module you referenced.
+> `"Modules"` lists **feature** modules only; the foundational kernel always loads. Support is omitted here,
+> so this client has no `support` schema and no ticket endpoints. Omit the `"Modules"` key entirely to load
+> **every** module you referenced.
 
-**`ClientA.Host/Properties/launchSettings.json`** — makes Swagger launch by default, just like
-`ModularShop.Server`: pick a Development environment and point `launchUrl` at `swagger` so `dotnet run` (or
-F5) opens the browser straight at the API docs. Use ports that don't clash with the demo host.
+**`ClientA.Host/Properties/launchSettings.json`** — makes Swagger launch by default, like `ModularShop.Server`
+(a Development environment with `launchUrl: "swagger"`), on ports that don't clash with the demo host:
 
 ```json
 {
@@ -1036,7 +759,7 @@ F5) opens the browser straight at the API docs. Use ports that don't clash with 
 ### 7.6 Restore, generate this client's migration, and run
 
 ```bash
-# 1. Restore the whole solution from the feed (reads nuget.config; needs GITHUB_TOKEN set for github).
+# 1. Restore from the feed (reads nuget.config; needs GITHUB_TOKEN set for the github source).
 dotnet restore ClientA/ClientA.slnx
 
 # 2. Generate THIS client's migration into the Infrastructure project (where AppDbContext lives), booting
@@ -1056,47 +779,43 @@ The default launch profile opens the browser at `/swagger`. Sign in with a seede
 ModularShop source anywhere in the client.
 
 > **Smoke-test the controllers.** Since routes come from each module's application part (not bin-scanning),
-> hit one endpoint per module (e.g. `GET /api/products`, `/api/orders`, `/api/shipments`) and expect
-> `200`/`401`, not `404`. A `404` on a selected module means its package isn't referenced or isn't in `"Modules"`.
-
+> hit one endpoint per module (`GET /api/products`, `/api/orders`, `/api/shipments`) and expect `200`/`401`,
+> not `404`. A `404` on a selected module means its package isn't referenced or isn't in `"Modules"`.
+>
 > **Why the client generates its own migration:** the one host migration inside the ModularShop repo covers
-> *all* modules. A client that composes a *subset* has a *different* model, so it must own its own migration
+> *all* modules. A client that composes a *subset* has a *different* model, so it owns its own migration
 > chain. `dotnet ef` boots this host's own services, so `AddModules` selects the same set the runtime will —
 > the migration matches the client exactly. (No design-time factory is needed.)
 
 ---
 
-## 8. How the packages are invoked and used at runtime
+## 8. How the packages are invoked at runtime
 
-Nothing here is new — it's the same mechanism as the monorepo, just fed by packages:
+Nothing here is new — it's the same mechanism as the monorepo (architecture.md §5), just fed by packages:
 
 1. **Discovery.** `AddModules` → `DiscoverModules()` scans `AppContext.BaseDirectory` (the client's `bin`)
-   for `ModularShop.*.dll` and loads every `IModule` it finds. The packaged DLLs are in `bin`, so they're
-   found exactly like project-referenced ones.
+   for `ModularShop.*.dll` and loads every `IModule`. The packaged DLLs are in `bin`, so they're found
+   exactly like project-referenced ones.
 2. **Selection & validation.** The `"Modules"` array keeps the named modules (+ the always-on kernel), then
    `ValidateRequiredModules` (§3.4) fails fast if any selected module's `RequiredModules` are not all present.
-3. **Registration.** Each module's `Register(...)` wires its own use cases, MediatR bus (if any), and
-   seeder — and registers its `.Api` assembly as an MVC **application part**
-   (`AddControllers().AddApplicationPart(...)`). Implicit discovery is off (§7.4, decision-log D13), so routes
-   appear only for modules that were selected and registered.
+3. **Registration.** Each module's `Register(...)` wires its own use cases, MediatR bus (if any), and seeder,
+   and registers its `.Api` assembly as an MVC **application part**. Implicit discovery is off (D13), so
+   routes appear only for selected, registered modules.
 4. **Composition.** `AppDbContext.OnModelCreating` calls `ApplyModuleModels`, which reflects each module
    context's `OnModelCreating` onto the one shared model.
 5. **Startup.** `InitializeModulesAsync` migrates the one database once, then runs each seeder in `Order`.
 
-**The order → shipment flow still works** because ClientA installed **both** Sales and Warehouse: Sales
-resolves `IWarehouseApi` (implemented by the Warehouse package), and Shipping reacts to `OrderPlaced`.
-
-**Incomplete selections fail fast.** The startup validation from §3.4 checks each selected module's
-`RequiredModules` before registrations run. If someone lists `"Sales"` but forgets `"Warehouse"`, the host
-throws a clear startup error instead of waiting until the first order fails because DI cannot resolve
-`IWarehouseApi`.
+The order → shipment flow works because ClientA installed **both** Sales and Warehouse: Sales resolves
+`IWarehouseApi` (implemented by the Warehouse package), and Shipping reacts to `OrderPlaced`. An incomplete
+selection (`"Sales"` without `"Warehouse"`) is caught by step 2's validation, not by a DI failure on the
+first order.
 
 ---
 
 ## 9. Updating a client to newer packages
 
-1. You publish a new version from the ModularShop repo (bump `<Version>`, run `dotnet pack`, then push — or
-   push a `v1.1.0` tag if you set up CI).
+1. Publish a new version from the ModularShop repo (bump `<Version>`, `dotnet pack`, push — or push a
+   `v1.1.0` tag if CI is set up).
 2. In the client, bump the numbers in its **`Directory.Packages.props`** (e.g. `1.0.0 → 1.1.0`) and
    `dotnet restore`. Each client moves **on its own schedule** — that's the whole benefit.
 3. **If a module's database model changed** in that version, add a migration in the client and re-run:
@@ -1117,26 +836,24 @@ throws a clear startup error instead of waiting until the first order fails beca
 - SQL Server is the Windows install; `Server=localhost;Trusted_Connection=True;TrustServerCertificate=True`
   works from a Windows .NET process (shared memory). TCP is off, so a Linux-native process can't reach it.
 
-**`401 Unauthorized` restoring/pushing to GitHub Packages** — `GITHUB_TOKEN` isn't set in the shell, the PAT
-lacks `read:packages`/`write:packages`, or the `Username` in `nuget.config` is wrong. `echo $GITHUB_TOKEN`
-to confirm it's exported.
+**`401 Unauthorized` restoring/pushing to GitHub Packages** — `GITHUB_TOKEN` isn't set, the PAT lacks
+`read:packages`/`write:packages`, or the `Username` in `nuget.config` is wrong. `echo $GITHUB_TOKEN` to
+confirm it's exported.
 
 **A module isn't loaded / its endpoints 404** — check the assembly name still starts with `ModularShop.`
 (the scan pattern), that the module is named in `"Modules"` (or the key is absent), and that the client's
-**`.Infrastructure`** project references the public module package (`ModularShop.Modules.Sales`,
-`ModularShop.Modules.Support`, etc.) so the implementation DLLs flow through to the Host's `bin`.
+**`.Infrastructure`** project references the public module package so the implementation DLLs flow into `bin`.
 
-**`Invalid module selection` at startup** — a selected module requires another module that is not enabled.
-For example, `Sales` requires `Warehouse`. Add the missing public module package if it is not referenced,
-then add the missing module name to the `"Modules"` array.
+**`Invalid module selection` at startup** — a selected module requires another that isn't enabled (e.g.
+`Sales` requires `Warehouse`). Add the missing module package if needed, then add its name to `"Modules"`.
 
-**`PendingModelChangesWarning` at startup** — the client's migration doesn't match its composed model.
-You changed the `"Modules"` set (or a module version) without regenerating the migration. Add a fresh
-migration (§9) so the migration matches the selected modules.
+**`PendingModelChangesWarning` at startup** — the client's migration doesn't match its composed model. You
+changed the `"Modules"` set (or a module version) without regenerating the migration. Add a fresh migration
+(§9).
 
-**"Package X was restored but the version is different"** — you referenced a package version that isn't on
-the feed yet. Confirm `dotnet pack` produced it and `dotnet nuget push` uploaded it, and that the version in
-the client's `Directory.Packages.props` matches.
+**"Package X was restored but the version is different"** — you referenced a version that isn't on the feed
+yet. Confirm `dotnet pack` produced it and `dotnet nuget push` uploaded it, and that the version in the
+client's `Directory.Packages.props` matches.
 
 **CPM error: "PackageReference … must not specify a version"** — with Central Package Management, versions
 live only in `Directory.Packages.props`; remove `Version="…"` from the `.csproj` `PackageReference`.
@@ -1174,16 +891,16 @@ dotnet run --project ClientA/ClientA.Host
 ### Summary
 
 - **Implementation packages + dependency-only meta-packages.** A single `dotnet pack` produces the layer
-  packages *and* the meta-packages (SDK projects with `IncludeBuildOutput=false`, so they ship no DLL), and
-  clients install one clean public package per module. Each meta-package references **only its own module** —
-  never another module's meta-package. The `Contracts` isolation is preserved.
-- **Cross-module runtime needs live in `IModule.RequiredModules`, not the package graph** — the host validates
-  the selection at startup and fails fast (decision-log D18). Controllers likewise come from each module
-  registering its own `.Api` application part, with implicit discovery off (D13).
+  packages *and* the meta-packages (`IncludeBuildOutput=false`, so they ship no DLL); clients install one
+  clean public package per module. Each meta-package references **only its own module** — never another
+  module's meta-package. `Contracts` isolation is preserved.
+- **Cross-module runtime needs live in `IModule.RequiredModules`, not the package graph** — the host
+  validates the selection at startup and fails fast (decision-log D18). Controllers likewise come from each
+  module registering its own `.Api` application part, with implicit discovery off (D13).
 - **Publish to GitHub Packages** (free, no server); symbols are embedded so step-into works from any feed.
   Prove the loop with a **local folder feed** first.
-- **A client is a thin two-project solution that mirrors ModularShop's layering**: a thin `.Host`
-  (`Program.cs` + `appsettings.json` + `launchSettings.json`, wiring HTTP) over a `.Infrastructure` layer
-  that owns the ~10-line `AppDbContext`, this client's **own migration**, and the module package references
-  (`"Modules"` in `appsettings.json` selects which of them run). It never references ModularShop's source or
-  its host — only `ModularShop.Kernel.Hosting` plus the public module packages it chose.
+- **A client is a thin two-project solution that mirrors ModularShop's layering** — a thin `.Host` over a
+  `.Infrastructure` layer that owns the ~10-line `AppDbContext`, its **own migration**, and the module
+  package references (`"Modules"` in `appsettings.json` selects which run). It never references ModularShop's
+  source or its host — only `ModularShop.Kernel.Hosting` plus the public module packages it chose. The
+  sibling **`OrderingHub`** solution is a real, runnable instance of this shape.

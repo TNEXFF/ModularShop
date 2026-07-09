@@ -496,5 +496,6 @@ sequenceDiagram
 - **CQRS command/query bus** → out of scope. MediatR is used **only** for integration events.
 
 See [`decision-log.md`](./decision-log.md) for *why* each choice was made and what alternatives were
-weighed, and [`platform-mapping.md`](./platform-mapping.md) for how this maps back to the Platform
-solution.
+weighed, [`platform-mapping.md`](./platform-mapping.md) for how this maps back to the Platform
+solution, and [`packaging-and-distribution.md`](./packaging-and-distribution.md) for turning these
+modules into reusable NuGet packages a client micro-solution can compose.

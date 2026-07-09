@@ -52,7 +52,7 @@ Infrastructure, Api), plus a tiny `*.Contracts` project *only where another modu
 ```
 ModularShop/
 ├─ ModularShop.slnx                      # solution (modern .slnx format; CLI or a recent VS/Rider)
-├─ docs/  architecture.md · decision-log.md · platform-mapping.md
+├─ docs/  architecture.md · decision-log.md · platform-mapping.md · packaging-and-distribution.md
 ├─ src/
 │  ├─ ModularShop.Server/                # HOST = web composition root (Program.cs). No business logic.
 │  │  └─ appsettings.json                #   optional "Modules": ["Sales",…] selects which modules load
@@ -230,7 +230,8 @@ Generous and coherent, created on first run:
 
 Verified in this environment (WSL2 with the Windows .NET 10 toolchain + SQL Server 2022):
 
-- ✅ `dotnet build` of the whole solution (**24 projects**) — 0 warnings, 0 errors.
+- ✅ `dotnet build` of the whole solution (**29 projects** — 24 code projects + the 5 dependency-only
+  packaging meta-projects, see [`docs/packaging-and-distribution.md`](docs/packaging-and-distribution.md)) — 0 warnings, 0 errors.
 - ✅ The reflection‑composed model matches the centralised migration: `dotnet ef migrations
   has-pending-model-changes` reports **no changes**. The running `ModularShopDemo` shows the five schemas
   `kernel` / `sales` / `warehouse` / `shipping` / `support`, child tables placed correctly, and
@@ -262,4 +263,5 @@ Verified in this environment (WSL2 with the Windows .NET 10 toolchain + SQL Serv
 - The solution uses the modern **`.slnx`** format — build with the CLI or a recent Visual Studio (17.13+) / Rider.
 
 Deep dives: [`docs/architecture.md`](docs/architecture.md) ·
-[`docs/decision-log.md`](docs/decision-log.md) · [`docs/platform-mapping.md`](docs/platform-mapping.md).
+[`docs/decision-log.md`](docs/decision-log.md) · [`docs/platform-mapping.md`](docs/platform-mapping.md) ·
+[`docs/packaging-and-distribution.md`](docs/packaging-and-distribution.md) (turning the modules into reusable NuGet packages).
