@@ -30,6 +30,17 @@ public interface IModule
     /// </summary>
     bool IsFoundational => false;
 
+    /// <summary>
+    /// Names of other feature modules that must be enabled alongside this one (matched against
+    /// <see cref="Name"/>, case-insensitively). The host validates the selected set at startup
+    /// (<c>ModuleRegistration.AddModules</c>) and fails fast with a clear message when a required module is
+    /// missing — so an incomplete "Modules" selection is caught at boot rather than as a DI resolution
+    /// failure on the first request that needs it. This is the single source of truth for cross-module
+    /// runtime requirements: it holds for the demo host and for any packaged micro-solution, independent of
+    /// how the module DLLs arrive. Default: none.
+    /// </summary>
+    IReadOnlyCollection<string> RequiredModules => Array.Empty<string>();
+
     /// <summary>Register everything the module owns: its services, use cases, controllers, event handlers and initializer.</summary>
     void Register(IServiceCollection services, IConfiguration configuration);
 }

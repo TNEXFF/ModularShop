@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <PackageId>ModularShop.Modules.Sales</PackageId>
+    <Description>Sales module package for ModularShop client hosts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
+
+    <!-- Brings Sales.Application (→ Sales.Contracts, Warehouse.Contracts), Sales.Domain, Sales.Api transitively.
+         Note it already carries Warehouse.Contracts (the compile-time surface) — but NOT the Warehouse module;
+         Sales' runtime need for Warehouse lives in SalesModule.RequiredModules, validated at startup. -->
+    <ProjectReference Include="..\ModularShop.Modules.Sales.Infrastructure\ModularShop.Modules.Sales.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

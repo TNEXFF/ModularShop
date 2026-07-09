@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <PackageId>ModularShop.Modules.Warehouse</PackageId>
+    <Description>Warehouse module package for ModularShop client hosts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Kernel\ModularShop.Kernel.Hosting\ModularShop.Kernel.Hosting.csproj" />
+
+    <!-- Brings Warehouse.Application, Warehouse.Domain, Warehouse.Api, Warehouse.Contracts and — for the
+         OrderPlaced handler — Sales.Contracts, all transitively. -->
+    <ProjectReference Include="..\ModularShop.Modules.Warehouse.Infrastructure\ModularShop.Modules.Warehouse.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

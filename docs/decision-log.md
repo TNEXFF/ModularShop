@@ -185,6 +185,22 @@ The kernel is layered like a feature module, so its `IModule` implementation (`K
 on Infrastructure — the exact coupling this removes) and a dead `AddKernelWeb()` extension (deleted; its
 registrations already live in `KernelModule`).
 
+### D18 — A module declares its cross‑module runtime needs via `RequiredModules`; the host validates the selection at startup
+Once selection is config‑driven (D5), a deployment can pick an **incomplete** set — e.g. `"Modules": ["Sales"]`
+without Warehouse, even though Sales calls `IWarehouseApi` synchronously to place an order. A module now
+declares such needs on the `IModule` contract itself — `IReadOnlyCollection<string> RequiredModules` (default
+none). Only `SalesModule` needs one today — `["Warehouse"]`; Warehouse and Shipping merely *react* to Sales'
+`OrderPlaced` event and run fine without it, so they declare nothing. `ModuleRegistration.AddModules` runs `ValidateRequiredModules`
+right after selection and **before** any registration or migration, throwing a single aggregated
+`InvalidOperationException` ("Module 'Sales' requires module 'Warehouse', but 'Warehouse' is not enabled.")
+when the set is incomplete — a clear boot‑time failure instead of a DI resolution error on the first order.
+This lives in the **kernel** so it protects every host identically: the demo, and any packaged
+micro‑solution. *Rejected:* encoding the requirement in a **package graph** (a module's package dragging in
+the whole module it depends on) — that couples runtime topology to packaging, forces a heavier install than
+some clients want, and would still not stop a client from *deselecting* the dependency in config. Keeping the
+rule in `RequiredModules` makes it the **single source of truth**, independent of how the DLLs arrive (project
+reference or NuGet package). See `packaging-and-distribution.md` §3.4.
+
 **Explicitly out of scope** (all legitimate in production, none needed to teach MM): CQRS buses, test
 projects, a transactional outbox/inbox, Docker, multi‑tenancy, SignalR, background jobs, and real SSO —
 represented where relevant by lightweight seams (`ICurrentUser`, `ILogger`, middleware).

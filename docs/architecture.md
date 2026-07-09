@@ -235,6 +235,7 @@ public interface IModule
     string Name { get; }                  // "Sales", "Kernel", …
     Type ContextType { get; }             // the module's DbContext, harvested for the model (§3)
     bool IsFoundational => false;         // the kernel overrides this to true (always loads, composes first)
+    IReadOnlyCollection<string> RequiredModules => [];   // other modules that must be enabled too (D18); validated at startup
     void Register(IServiceCollection services, IConfiguration configuration);
 }
 ```
@@ -245,7 +246,9 @@ The kernel provides one extension that **discovers, selects and registers** ever
 // Kernel.Infrastructure/ModuleRegistration.cs
 public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration)
 {
-    foreach (var module in SelectModules(DiscoverModules(), configuration))
+    var modules = SelectModules(DiscoverModules(), configuration);
+    ValidateRequiredModules(modules);                  // fail fast on an incomplete set (D18)
+    foreach (var module in modules)
     {
         services.AddSingleton<IModule>(module);        // the host context injects these (§3)
         module.Register(services, configuration);      // the module wires ALL of its own parts
@@ -259,6 +262,9 @@ public static IServiceCollection AddModules(this IServiceCollection services, IC
   assemblies load lazily.)
 - **Select** — read a `"Modules"` array from configuration: keep the named modules (plus the
   foundational kernel, always); if the key is **absent, keep them all**.
+- **Validate** — check each selected module’s `RequiredModules` against the selected set and throw a clear
+  error if any is missing (e.g. `Sales` selected without `Warehouse`), *before* any registration or
+  migration runs. See decision **D18**.
 - **Register** — foundational‑first, register each `IModule` and let it register its own services.
 
 So `Program.cs` is tiny:

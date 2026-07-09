@@ -19,6 +19,12 @@ public sealed class SalesModule : IModule
     public string Name => "Sales";
     public Type ContextType => typeof(SalesDbContext);
 
+    // Sales calls IWarehouseApi synchronously when placing an order, so it cannot run without Warehouse.
+    // Declared here (not baked into a package graph) so the host validates it for EVERY deployment — the
+    // demo and any packaged micro-solution — before the first request. See ModuleRegistration.AddModules
+    // and docs/decision-log.md D18.
+    public IReadOnlyCollection<string> RequiredModules => ["Warehouse"];
+
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
         // This module's controllers, registered as an MVC application part. The host turns OFF the SDK's

@@ -22,7 +22,11 @@ public static class ModuleRegistration
     /// </summary>
     public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration)
     {
-        foreach (var module in SelectModules(DiscoverModules(), configuration))
+        // SelectModules already returns the chosen set, foundational-first — so no re-ordering here.
+        var modules = SelectModules(DiscoverModules(), configuration);
+        ValidateRequiredModules(modules);
+
+        foreach (var module in modules)
         {
             services.AddSingleton<IModule>(module);
             module.Register(services, configuration);
@@ -81,5 +85,24 @@ public static class ModuleRegistration
                                  || enabledNames.Contains(m.Name, StringComparer.OrdinalIgnoreCase));
 
         return selected.OrderByDescending(m => m.IsFoundational).ToList();
+    }
+
+    // Fail fast when the selected set is incomplete. A module declares its cross-module runtime needs via
+    // IModule.RequiredModules (e.g. Sales needs Warehouse for its synchronous IWarehouseApi call). Without
+    // this, a bad "Modules" selection would only surface later as a DI resolution error on the first request
+    // that reaches the missing module. This runs for EVERY host — the demo and any packaged micro-solution.
+    private static void ValidateRequiredModules(IReadOnlyList<IModule> selected)
+    {
+        var selectedNames = selected.Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var errors = selected
+            .SelectMany(module => module.RequiredModules
+                .Where(required => !selectedNames.Contains(required))
+                .Select(required => $"Module '{module.Name}' requires module '{required}', but '{required}' is not enabled."))
+            .ToArray();
+
+        if (errors.Length > 0)
+            throw new InvalidOperationException(
+                "Invalid module selection:" + Environment.NewLine + string.Join(Environment.NewLine, errors));
     }
 }

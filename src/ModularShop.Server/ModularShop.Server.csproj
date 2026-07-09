@@ -12,6 +12,7 @@
          docs/decision-log.md D13. Leaving this ON would DOUBLE-register every module controller (the implicit
          part + the explicit one) and throw at startup, so EVERY host / micro-solution must keep this false. -->
     <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
+    <IsPackable>false</IsPackable>   <!-- the demo web host is never a package; each client writes its own -->
   </PropertyGroup>
 
   <!-- EF Core design-time tooling (used by `dotnet ef` with this as the startup project).

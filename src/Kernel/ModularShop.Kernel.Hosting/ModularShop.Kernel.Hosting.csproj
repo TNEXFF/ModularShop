@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>   <!-- meta-package: ship no DLL -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>                 <!-- "dependencies but no library" is expected here -->
+    <PackageId>ModularShop.Kernel.Hosting</PackageId>
+    <Description>Hosting and module-composition package for ModularShop client hosts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModularShop.Kernel.Domain\ModularShop.Kernel.Domain.csproj" />
+    <ProjectReference Include="..\ModularShop.Kernel.Application\ModularShop.Kernel.Application.csproj" />
+    <ProjectReference Include="..\ModularShop.Kernel.Infrastructure\ModularShop.Kernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\ModularShop.Kernel.Api\ModularShop.Kernel.Api.csproj" />
+  </ItemGroup>
+
+</Project>

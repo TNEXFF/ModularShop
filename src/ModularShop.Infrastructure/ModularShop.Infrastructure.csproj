@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ModularShop.Infrastructure</RootNamespace>
+    <IsPackable>false</IsPackable>   <!-- demo migrations are host-specific; each client owns its own -->
   </PropertyGroup>
 
   <!-- The host's composition/persistence layer. It owns the single host DbContext (which composes every
