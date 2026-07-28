@@ -201,6 +201,28 @@ some clients want, and would still not stop a client from *deselecting* the depe
 rule in `RequiredModules` makes it the **single source of truth**, independent of how the DLLs arrive (project
 reference or NuGet package). See `packaging-and-distribution.md` §3.4.
 
+### D19 — Packages are the default; project references are an opt‑in that only exists on one machine
+Developers who work on **both** ModularShop and a client solution were paying the full pack → push → bump →
+restore loop for every source edit (and hitting stale cached packages when they forgot to bump). A client
+project now resolves its `ModularShop.*` references **either** as `PackageReference` (default) **or** as
+`ProjectReference` into a local ModularShop clone — never both. The switch (and the path to that
+developer's clone) is set in `{Client}/ModularShop.local.props`, a **git‑ignored** file (a committed
+`.example` documents it), so the opt‑in physically cannot reach another developer, a PR, CI, or production.
+The clone path has **no default**: a committed file must not guess where an individual keeps their repos,
+and an unset path simply reads as "not opted in". The swap logic lives in **one**
+file, `ModularShop.ProjectReferences.targets` at this repo's root; each client repo carries only a ~15‑line
+`Directory.Build.targets` stub naming no modules and no paths, and its `.csproj` files stay ordinary — no
+conditional blocks anywhere. Mutual exclusion is structural: the swap `Remove`s the package reference in the
+same `ItemGroup` that adds the project reference. *Rejected:* a `Choose/When/Otherwise` block per `.csproj` —
+correct, but duplicates the module list and source paths into every project of every client repo, and they
+drift. *Rejected:* shipping the logic **inside the NuGet packages** — impossible twice over: NuGet
+*automatically excludes* `PackageReference` items from a package's `build/*.props|targets`, those files only
+arrive via `nuget.g.props` **after** the restore that would need them, and a package removing its own
+`PackageReference` is circular. *Rejected:* a dedicated MSBuild project SDK package — needs a `global.json`
+entry per client repo anyway, and bakes this repo's folder layout into a published artifact that goes stale
+on the next reorganisation; importing from the clone always matches the checked‑out commit. See
+`packaging-and-distribution.md` §10.
+
 **Explicitly out of scope** (all legitimate in production, none needed to teach MM): CQRS buses, test
 projects, a transactional outbox/inbox, Docker, multi‑tenancy, SignalR, background jobs, and real SSO —
 represented where relevant by lightweight seams (`ICurrentUser`, `ILogger`, middleware).

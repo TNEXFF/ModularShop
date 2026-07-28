@@ -53,6 +53,7 @@ Infrastructure, Api), plus a tiny `*.Contracts` project *only where another modu
 ModularShop/
 ├─ ModularShop.slnx                      # solution (modern .slnx format; CLI or a recent VS/Rider)
 ├─ docs/  architecture.md · decision-log.md · platform-mapping.md · packaging-and-distribution.md
+├─ ModularShop.ProjectReferences.targets # hybrid referencing — packaging doc §10
 ├─ src/
 │  ├─ ModularShop.Server/                # HOST = web composition root (Program.cs). No business logic.
 │  │  └─ appsettings.json                #   optional "Modules": ["Sales",…] selects which modules load
@@ -264,4 +265,6 @@ Verified in this environment (WSL2 with the Windows .NET 10 toolchain + SQL Serv
 
 Deep dives: [`docs/architecture.md`](docs/architecture.md) ·
 [`docs/decision-log.md`](docs/decision-log.md) · [`docs/platform-mapping.md`](docs/platform-mapping.md) ·
-[`docs/packaging-and-distribution.md`](docs/packaging-and-distribution.md) (turning the modules into reusable NuGet packages).
+[`docs/packaging-and-distribution.md`](docs/packaging-and-distribution.md) (turning the modules into reusable
+NuGet packages — and §10, how a developer working on both repos builds a client straight from this source
+instead, without giving up packages as the default).

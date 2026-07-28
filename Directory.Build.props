@@ -2,7 +2,7 @@
   <PropertyGroup>
     <!-- One version for the whole suite. Bump this one line to release everything together (see
          docs/packaging-and-distribution.md §4). -->
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
 
     <!-- Package metadata (shown on the feed). -->
     <Authors>TNEX</Authors>
@@ -19,11 +19,9 @@
     <!-- Don't warn about missing XML comments while documentation is being added. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
-    <!-- Step-debug into the packages from ANY feed: embed the PDB into each DLL (no separate .snupkg, which
-         GitHub Packages could not serve anyway), plus SourceLink metadata so a debugger can fetch the source. -->
-    <DebugType>embedded</DebugType>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- No embedded PDB: packages ship without debug symbols, so a debugger can never bind a breakpoint
+         inside them. -->
+    <DebugType>none</DebugType>
 
     <!-- Deterministic, path-normalised builds — but ONLY in CI (on a dev machine it degrades local debugging). -->
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">true</ContinuousIntegrationBuild>

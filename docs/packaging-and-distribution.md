@@ -29,7 +29,8 @@ you will:
 - [7. Building a new client micro-solution (worked example)](#7-building-a-new-client-micro-solution-worked-example)
 - [8. How the packages are invoked at runtime](#8-how-the-packages-are-invoked-at-runtime)
 - [9. Updating a client to newer packages](#9-updating-a-client-to-newer-packages)
-- [10. Troubleshooting & environment gotchas](#10-troubleshooting--environment-gotchas)
+- [10. Hybrid referencing — packages by default, project references locally](#10-hybrid-referencing--packages-by-default-project-references-locally)
+- [11. Troubleshooting & environment gotchas](#11-troubleshooting--environment-gotchas)
 - [Appendix — command cheat-sheet](#appendix--command-cheat-sheet)
 
 ---
@@ -299,11 +300,10 @@ Create **`/ModularShop/Directory.Build.props`** (next to `Directory.Packages.pro
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>   <!-- don't warn about missing XML comments while docs are added -->
 
-    <!-- Step-debug into the packages from ANY feed: embed the PDB into each DLL (no separate .snupkg, which
-         GitHub Packages could not serve anyway), plus SourceLink metadata so a debugger can fetch the source. -->
-    <DebugType>embedded</DebugType>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- No embedded PDB: packages ship without debug symbols, so a debugger can never bind a breakpoint
+         inside them — a real, opaque Release build, no "debugging a Release build" prompt to click
+         through. Step-debugging into ModularShop code is only available via project references (§10). -->
+    <DebugType>none</DebugType>
 
     <!-- Deterministic, path-normalised builds — but ONLY in CI (on a dev machine it degrades local debugging). -->
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">true</ContinuousIntegrationBuild>
@@ -433,13 +433,13 @@ only thing left for the "real" feed is authentication.
 ### 5.1 Create the feed folder and pack into it
 
 ```bash
-# From the ModularShop repo root. Use a Windows-style path because dotnet here is the Windows SDK (§10).
+# From the ModularShop repo root. Use a Windows-style path because dotnet here is the Windows SDK (§11).
 # This makes ONE folder that holds every .nupkg — implementation and meta-packages together.
 dotnet pack ModularShop.slnx -c Release -o "D:/TNEX/LocalFeed"
 ```
 
-`dotnet pack` drops one `.nupkg` per **packable** project into `D:/TNEX/LocalFeed` (no separate `.snupkg` —
-symbols are embedded, §3.1), producing exactly the files listed in §3.3. The two host projects are absent —
+`dotnet pack` drops one `.nupkg` per **packable** project into `D:/TNEX/LocalFeed` (no `.pdb` in it either —
+`DebugType=none`, §3.1), producing exactly the files listed in §3.3. The two host projects are absent —
 that's `IsPackable=false` working.
 
 ### 5.2 Register the folder as a NuGet source
@@ -827,7 +827,155 @@ first order.
 
 ---
 
-## 10. Troubleshooting & environment gotchas
+## 10. Hybrid referencing — packages by default, project references locally
+
+Everything above assumes a client consumes ModularShop as **packages**. That is right for a developer who
+only works on a client solution — but it is slow for someone working on **both** repos at once. Changing one
+line in Sales means bump `<Version>` → `dotnet pack` → push → bump the client's `Directory.Packages.props`
+→ `dotnet restore`. Forget the version bump and NuGet may quietly serve the cached `1.0.0`, so your change
+appears to do nothing.
+
+This section adds an **opt-in, machine-local switch**: a developer who has a ModularShop clone can make a
+client build against ModularShop's **`.csproj` files** instead of its packages. Edit source, rebuild the
+client, done — no pack, no push, no version bump.
+
+**The rule this is built around:** packages stay the default for every client solution, forever. Project
+references are only ever enabled by a file that **git refuses to track**, so the opt-in cannot reach another
+developer, a pull request, CI, or production. And the two modes are **mutually exclusive by construction** —
+the swap removes the package reference in the same breath as it adds the project reference.
+
+### 10.1 Who gets what
+
+| | Works on ModularShop **and** a client | Works on a client only | CI / production |
+|---|---|---|---|
+| Creates `ModularShop.local.props` | **yes**, once | no | no |
+| Needs a ModularShop clone | yes | **no** | **no** |
+| Gets | project references | packages | packages |
+
+### 10.2 The moving parts
+
+```
+ModularShop/
+└─ ModularShop.ProjectReferences.targets         # committed — ALL the logic, the only copy
+
+OrderingHub/                                      # …and every future client solution
+├─ Directory.Build.targets                        # committed — ~15-line stub, never needs editing
+├─ ModularShop.local.props.example                # committed — the template developers copy
+├─ ModularShop.local.props                        # GIT-IGNORED — the actual opt-in
+└─ .gitignore                                     # one line: ModularShop.local.props
+```
+
+**1 · `ModularShop/ModularShop.ProjectReferences.targets`** holds the whole mechanism: a map of
+*public package id → project file*, an intersection that narrows that map to whatever each project actually
+references, and the swap itself. It names every module ModularShop publishes and is **not** client-specific,
+so the same file serves every client solution unchanged.
+
+**2 · `{Client}/Directory.Build.targets`** is a stub that names **no modules and no paths**. It looks for the
+developer's opt-in file, decides where the ModularShop clone is, and — only if the flag is on *and* the clone
+exists — imports file 1. MSBuild finds this file automatically: it walks up from each project until it hits
+the first `Directory.Build.targets`, so one at the client root covers every project underneath.
+
+**3 · `{Client}/ModularShop.local.props`** is the opt-in itself: two properties — the switch, and the full
+path to that developer's ModularShop clone. It is git-ignored, and `ModularShop.local.props.example` is
+committed next to it so developers know it exists and what to write.
+
+> **There is deliberately no default for the clone path.** A committed file must not guess where any one
+> developer keeps their repos, so each states their own. Leaving it unset simply means "not opted in" — the
+> build stays on packages and says so (§11).
+
+> **Why the split matters.** The stub is duplicated across client repos, but it is pure plumbing that never
+> changes. Everything that *does* change — the module list, the source layout — lives in file 1, in one
+> place. Adding a module is one line in one file, no matter how many client solutions exist.
+
+### 10.3 Turning it on
+
+```bash
+cd OrderingHub
+cp ModularShop.local.props.example ModularShop.local.props   # then set ModularShopRepoRoot to YOUR clone
+dotnet restore OrderingHub.slnx                              # or just reload the project in the IDE
+```
+
+Both properties in that file matter: `UseModularShopProjectReferences` turns the switch on, and
+`ModularShopRepoRoot` says where your clone is. Miss either one and the build warns and stays on packages
+rather than failing (§11).
+
+To go back to packages, delete the file (or set the switch to `false`) and restore again. Package mode
+picks up whatever version is pinned in `Directory.Packages.props`, so if ModularShop's source has moved on,
+that is your cue to re-pack and re-push before switching back — exactly as today.
+
+A developer who would rather not create a file per repo can instead set both as environment variables once;
+MSBuild turns environment variables into properties automatically, so they apply to every client repo on
+that machine at the same time.
+
+### 10.4 What actually happens under the hood
+
+The design rests on **when** MSBuild loads things. `<Project Sdk="Microsoft.NET.Sdk">` expands to:
+
+```
+1. Directory.Build.props    ← EARLY: no PackageReference items exist yet
+2. your .csproj body        ← the PackageReference items are created here
+3. Directory.Build.targets  ← LATE: they all exist, and can be read and removed
+```
+
+Step 3 is the only place both late enough to see the packages and still **evaluation** time, which is what
+NuGet restore reads. (A `<Target>` would run too late — restore would never see the result.) That is why the
+client stub is a `.targets` and not a `.props`.
+
+| | Flag **off** (default) | Flag **on** |
+|---|---|---|
+| ModularShop code comes from | `.nupkg` in the NuGet cache | the `.csproj` files, compiled from source |
+| Feed used | `../LocalFeed` (later GitHub Packages) | not used for ModularShop |
+| Versions for ModularShop's own third-party deps | baked into the packages | **ModularShop's** `Directory.Packages.props` |
+| Editing a module | pack → push → bump → restore | **just rebuild the client** |
+| Assembly names in `bin` | `ModularShop.*.dll` | `ModularShop.*.dll` (identical) |
+| Runtime behaviour | identical | identical |
+
+Two consequences worth internalising:
+
+- **The two repos' CPM files never need to touch each other.** A project under `ModularShop/src/…` walks up
+  and finds *ModularShop's* `Directory.Packages.props` and stops — it never reaches the client's. The
+  client's own `PackageVersion` entries for `ModularShop.*` simply go unused in project mode, which is
+  harmless (CPM only objects to a `PackageReference` *without* a version, never the reverse).
+- **One line per module is still enough.** `ProjectReference` is transitive exactly as `PackageReference`
+  is, so referencing the `ModularShop.Modules.Sales` meta-*project* pulls in `Kernel.Hosting` +
+  `Sales.Infrastructure`, which pull in Application → Contracts/Domain/Api. You never hand-list layers.
+
+**The one benign difference.** The meta-projects set `IncludeBuildOutput=false`, which only affects
+`dotnet pack` — so in project mode they *do* produce an (empty) `ModularShop.Modules.Sales.dll` in the
+client's `bin`, where package mode produces none. They contain no code at all, and `DiscoverModules` only
+instantiates concrete `IModule` classes, so the runtime scan (§8) is unaffected.
+
+### 10.5 Why this cannot live inside the ModularShop packages
+
+The obvious idea — ship the switching logic inside the module packages, since every client downloads them
+anyway — **does not work**, for reasons that are each fatal on their own. The NuGet documentation is explicit that a package's
+`build/*.props`/`*.targets` must not touch items that affect restore, and that such items are *automatically
+excluded*; `PackageReference` is named as an example. On top of that, those files reach a project through
+`{project}.nuget.g.props`, which restore itself generates — so the logic would not exist until after the
+restore that needed it. And logically it is circular: switching to project references means **removing** the
+very package the logic would be living in.
+
+A separate "tiny build package" fails for the same reason — it is still a package. The only NuGet-delivered
+form that could work is a full **MSBuild project SDK**, which needs a `global.json` entry in every client
+repo anyway (so it saves no file) and would hard-code this repo's folder layout into a published artifact,
+going stale the moment the source is reorganised.
+
+Importing from the clone avoids all of it: the import is **conditional**, so a package-only consumer never
+reads it and never needs the source, while the logic always matches the layout of the commit you have
+checked out.
+
+### 10.6 Adding a module, or a new client solution
+
+- **New module?** Add one `<MSProjectMap Include="…" ProjectPath="…" />` line to
+  `ModularShop.ProjectReferences.targets`. Nothing else, anywhere.
+- **New client solution?** Copy `Directory.Build.targets` and `ModularShop.local.props.example` in verbatim
+  and add `ModularShop.local.props` to its `.gitignore`. Neither file needs a single edit — they contain no
+  module names and no source paths. Its `.csproj` files stay ordinary, with plain `PackageReference` lines
+  and no conditional blocks of any kind.
+
+---
+
+## 11. Troubleshooting & environment gotchas
 
 **This machine's toolchain (WSL2 + Windows .NET/SQL):**
 - `dotnet` here is the **Windows** SDK via a wrapper, so it does **not** understand `/mnt/...` paths. Pass
@@ -858,6 +1006,28 @@ client's `Directory.Packages.props` matches.
 **CPM error: "PackageReference … must not specify a version"** — with Central Package Management, versions
 live only in `Directory.Packages.props`; remove `Version="…"` from the `.csproj` `PackageReference`.
 
+**Hybrid referencing (§10): "ModularShopRepoRoot is not set — there is no default"** — you turned the
+switch on but never said where your ModularShop clone is. Add `ModularShopRepoRoot` to your
+`ModularShop.local.props`. This is by design: no committed file guesses at your folder layout.
+
+**Hybrid referencing (§10): "… does not look like a ModularShop clone"** — the path is set but wrong, so
+the build fell back to packages. Check `ModularShopRepoRoot` points at the repo root (the folder containing
+`ModularShop.slnx` and `src/`). Use a Windows path (`D:/TNEX/ModularShop`), not a `/mnt/...` one.
+
+**Hybrid referencing: source edits in ModularShop don't show up in the client** — you are in package mode.
+Confirm `ModularShop.local.props` exists at the client root, then `dotnet restore`. To see which mode a
+project is in without building:
+```bash
+dotnet msbuild OrderingHub.Infrastructure/OrderingHub.Infrastructure.csproj -getItem:ProjectReference
+```
+An empty list means package mode; paths into `D:/TNEX/ModularShop` mean project mode.
+
+**Hybrid referencing: "… is still a PackageReference because it is not in the map"** — the client references
+a ModularShop package the map doesn't know about (typically an implementation package like
+`ModularShop.Modules.Sales.Infrastructure`, which clients aren't meant to install directly). Left alone you
+could get the same assembly from two sources. Either drop the reference in favour of the module
+meta-package, or add it to the map in `ModularShop.ProjectReferences.targets`.
+
 ---
 
 ## Appendix — command cheat-sheet
@@ -884,6 +1054,17 @@ dotnet restore ClientA/ClientA.slnx
 dotnet ef migrations add InitialCreate \
   --project ClientA/ClientA.Infrastructure --startup-project ClientA/ClientA.Host --context AppDbContext
 dotnet run --project ClientA/ClientA.Host
+
+# ── Hybrid referencing (§10) — build a client against ModularShop SOURCE ──────
+# Opt in (machine-local, git-ignored). Edit ModularShopRepoRoot in it, then restore.
+# Delete the file to go back to packages.
+cp ModularShop.local.props.example ModularShop.local.props && dotnet restore
+
+# One-off, no file needed. BOTH properties are required — there is no default clone path:
+dotnet build OrderingHub.slnx -p:UseModularShopProjectReferences=true -p:ModularShopRepoRoot=D:/TNEX/ModularShop
+
+# Which mode am I in? Empty list = packages; ModularShop paths = project references.
+dotnet msbuild OrderingHub.Infrastructure/OrderingHub.Infrastructure.csproj -getItem:ProjectReference
 ```
 
 ---
@@ -897,10 +1078,15 @@ dotnet run --project ClientA/ClientA.Host
 - **Cross-module runtime needs live in `IModule.RequiredModules`, not the package graph** — the host
   validates the selection at startup and fails fast (decision-log D18). Controllers likewise come from each
   module registering its own `.Api` application part, with implicit discovery off (D13).
-- **Publish to GitHub Packages** (free, no server); symbols are embedded so step-into works from any feed.
-  Prove the loop with a **local folder feed** first.
+- **Publish to GitHub Packages** (free, no server); packages ship no symbols, so step-into only works via
+  project references (§10), never against the package itself. Prove the loop with a **local folder feed**
+  first.
 - **A client is a thin two-project solution that mirrors ModularShop's layering** — a thin `.Host` over a
   `.Infrastructure` layer that owns the ~10-line `AppDbContext`, its **own migration**, and the module
   package references (`"Modules"` in `appsettings.json` selects which run). It never references ModularShop's
   source or its host — only `ModularShop.Kernel.Hosting` plus the public module packages it chose. The
   sibling **`OrderingHub`** solution is a real, runnable instance of this shape.
+- **Packages are the default; project references are a local opt-in** (§10). A developer working on both
+  repos creates one git-ignored file and builds the client straight from ModularShop's `.csproj` files — no
+  pack, no push, no version bump. The switch cannot travel in a commit, the two modes are mutually exclusive
+  by construction, and a package-only client still needs no ModularShop source at all.

@@ -1,0 +1,160 @@
+<Project>
+
+  <!--
+    ModularShop — hybrid referencing: the swap logic (the ONLY copy of it).
+
+    A client solution normally consumes ModularShop as NuGet packages. A developer who also works ON
+    ModularShop can opt in, on their own machine, to consuming it as PROJECT references instead — so a
+    source edit shows up in the client on the next build, with no pack / push / version bump.
+
+    This file performs that swap. It is imported by a client repo's committed `Directory.Build.targets`,
+    and ONLY when that developer has opted in — so a package-only consumer (and CI, and production) never
+    reads it and never needs a ModularShop clone at all.
+
+    WHY THE LOGIC LIVES HERE, AND WHY CLIENTS IMPORT IT INSTEAD OF OWNING A COPY
+
+      This logic could have lived in three other places. Each was rejected for a concrete reason.
+
+      1. As a Choose/When/Otherwise block inside every client .csproj.
+         This works, but every client project then holds its own copy of two things that change over
+         time: the list of modules, and the paths into this repo's src/ folders. Across several client
+         solutions those copies drift apart, and adding a module means hunting down and editing all of
+         them. Written here instead, both exist exactly once.
+
+      2. As this whole file, copied into each client repo.
+         Better, but the module list and the paths are still duplicated once per repo, so they still
+         drift. Because clients IMPORT this file rather than copy it, all a client repo needs is a stub
+         that mentions no module and no path — and therefore never needs editing again.
+
+      3. Shipped inside the ModularShop NuGet packages, so clients would get it automatically.
+         The tidiest-sounding option, and the only one that is outright impossible:
+           - NuGet forbids it. A package's build/*.props|targets may not add or remove PackageReference
+             items; NuGet strips such items automatically.
+           - It would arrive too late anyway. Those files reach a project through {project}.nuget.g.props,
+             a file that restore itself generates — so they do not yet exist during the very restore that
+             would need them.
+           - It is circular. Switching to project references means REMOVING the ModularShop packages, so
+             the logic would be deleting the package it was shipped inside.
+         The full version of this argument is in docs/packaging-and-distribution.md §10.5.
+
+      Two things follow from importing this file out of a local clone:
+
+      - Package-only clients are completely unaffected. The client stub imports this file ONLY when a
+        developer has opted in, so a client that has not opted in never reads it and needs no ModularShop
+        clone. The promise that a client "runs with no ModularShop source anywhere" still holds.
+      - The paths in the map below cannot go stale. They always describe the commit you currently have
+        checked out, because they travel with it. A copy published elsewhere would freeze one layout and
+        break silently the next time src/ is reorganised.
+
+    WHY IT IS A `.targets` AND NOT A `.props`
+      Directory.Build.props is imported BEFORE the .csproj body, when no PackageReference items exist yet —
+      nothing to read, nothing to remove. Directory.Build.targets is imported AFTER the body, when they all
+      exist. It is still EVALUATION time (an import, not a target), which is what NuGet restore reads.
+
+    Input:
+      $(ModularShopRepoRoot) — absolute path to the ModularShop repo root. The developer sets it in
+      {Client}/ModularShop.local.props; there is no default anywhere, because no committed file should
+      guess where an individual keeps their clone. By the time this file is imported the client stub has
+      already checked that the path is set and really points at a ModularShop clone, so the map below can
+      use it directly.
+  -->
+
+  <!--
+    1. THE MAP: public package id -> the project file that produces it.
+
+    This lists everything ModularShop publishes as a *public* surface — the five meta-packages plus the two
+    Contracts packages (docs/packaging-and-distribution.md §1). It is deliberately NOT per-client: the
+    intersection in step 2 narrows it down to whatever each project actually references, so the same file
+    serves every client solution unchanged.
+
+    ADDING A MODULE? Add one line here. That is the whole maintenance story.
+
+    `ProjectPath` is custom metadata (not an MSBuild keyword) — an arbitrary named value carried on each
+    item and read back in step 3 as %(ProjectPath). Paths are relative to $(ModularShopRepoRoot).
+  -->
+  <ItemGroup>
+    <!-- Kernel hosting meta-package — the one every client host installs. -->
+    <MSProjectMap Include="ModularShop.Kernel.Hosting"
+                  ProjectPath="src/Kernel/ModularShop.Kernel.Hosting/ModularShop.Kernel.Hosting.csproj" />
+
+    <!-- Feature module meta-packages — one per business capability a client can pick. -->
+    <MSProjectMap Include="ModularShop.Modules.Sales"
+                  ProjectPath="src/Modules/Sales/ModularShop.Modules.Sales/ModularShop.Modules.Sales.csproj" />
+    <MSProjectMap Include="ModularShop.Modules.Warehouse"
+                  ProjectPath="src/Modules/Warehouse/ModularShop.Modules.Warehouse/ModularShop.Modules.Warehouse.csproj" />
+    <MSProjectMap Include="ModularShop.Modules.Shipping"
+                  ProjectPath="src/Modules/Shipping/ModularShop.Modules.Shipping/ModularShop.Modules.Shipping.csproj" />
+    <MSProjectMap Include="ModularShop.Modules.Support"
+                  ProjectPath="src/Modules/Support/ModularShop.Modules.Support/ModularShop.Modules.Support.csproj" />
+
+    <!-- Contracts packages — only referenced directly when a client compiles against a module's public
+         surface (e.g. handling OrderPlaced itself). Mapped so those clients switch cleanly too. -->
+    <MSProjectMap Include="ModularShop.Modules.Sales.Contracts"
+                  ProjectPath="src/Modules/Sales/ModularShop.Modules.Sales.Contracts/ModularShop.Modules.Sales.Contracts.csproj" />
+    <MSProjectMap Include="ModularShop.Modules.Warehouse.Contracts"
+                  ProjectPath="src/Modules/Warehouse/ModularShop.Modules.Warehouse.Contracts/ModularShop.Modules.Warehouse.Contracts.csproj" />
+  </ItemGroup>
+
+  <!--
+    2. NARROW THE MAP TO WHAT *THIS* PROJECT ACTUALLY REFERENCES.
+
+    Evaluated once per project, so OrderingHub.Infrastructure (Kernel.Hosting + Sales + Warehouse) and
+    OrderingHub.Host (Kernel.Hosting only) each get exactly their own set. Modules that a project never asked
+    for are dropped automatically — nobody maintains a per-client list.
+
+    This is set intersection expressed as two subtractions:
+
+        Map        = { Kernel.Hosting, Sales, Warehouse, Shipping, Support, ...Contracts }
+        PackageRef = { Kernel.Hosting, Sales, Warehouse, EFCore.SqlServer, Swashbuckle }
+
+        _MSUnused  = Map minus PackageRef  = { Shipping, Support, ...Contracts }
+        _MSSwap    = Map minus _MSUnused   = { Kernel.Hosting, Sales, Warehouse }   <- the intersection
+
+    `Exclude` matches on item identity — package ids on both sides, so they line up.
+
+    Why start from the map rather than from @(PackageReference)? Only the map carries the ProjectPath
+    metadata. Starting from the map means the survivors arrive still knowing where their source lives.
+
+    Why not a Condition that filters per item? Per-item %(...) batching in a Condition only works inside a
+    <Target>, and a target runs too late for restore to see the result (see the header note). `Exclude` is
+    one of the few filtering tools available during evaluation.
+  -->
+  <ItemGroup>
+    <_MSUnused Include="@(MSProjectMap)" Exclude="@(PackageReference)" />
+    <_MSSwap   Include="@(MSProjectMap)" Exclude="@(_MSUnused)" />
+  </ItemGroup>
+
+  <!--
+    3. THE SWAP.
+
+    "Remove" drops those ids from the PackageReference list the .csproj built up (possible only because this
+    file is imported after the body). The transform @(list->'pattern') then rewrites each surviving item
+    into an absolute path to its .csproj, substituting that item's own %(ProjectPath).
+
+    One line per module is still enough: ProjectReference is transitive in SDK-style projects exactly as
+    PackageReference is, so referencing the Sales meta-PROJECT pulls Kernel.Hosting + Sales.Infrastructure,
+    which pull Application -> Contracts/Domain/Api. The meta-projects' IncludeBuildOutput=false only
+    affects `dotnet pack`; it has no effect on `dotnet build`, so referencing them here works normally.
+  -->
+  <ItemGroup>
+    <PackageReference Remove="@(_MSSwap)" />
+    <ProjectReference Include="@(_MSSwap->'$(ModularShopRepoRoot)/%(ProjectPath)')" />
+  </ItemGroup>
+
+  <!--
+    4. SAFETY NET: a ModularShop package that this file does not know about.
+
+    If a client references a ModularShop package missing from the map above,
+    it stays a PackageReference while its siblings became ProjectReferences — meaning the same
+    assembly could arrive from two places. Warn instead of letting that surface as a confusing type or
+    file-conflict error.
+
+    This one IS a <Target>, because it only prints a diagnostic — it manipulates no items, so running at
+    execution time is fine, and inside a target per-item %(...) batching is available.
+  -->
+  <Target Name="_MSWarnUnmappedModularShopPackages" BeforeTargets="Build">
+    <Warning Condition="$([System.String]::Copy('%(PackageReference.Identity)').StartsWith('ModularShop.'))"
+             Text="ModularShop project references are active, but '%(PackageReference.Identity)' is still a PackageReference because it is not in the map in ModularShop.ProjectReferences.targets. You may end up with two copies of the same assembly. Add it to the map, or drop the reference." />
+  </Target>
+
+</Project>
