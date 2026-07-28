@@ -220,7 +220,18 @@ drift. *Rejected:* shipping the logic **inside the NuGet packages** — impossib
 arrive via `nuget.g.props` **after** the restore that would need them, and a package removing its own
 `PackageReference` is circular. *Rejected:* a dedicated MSBuild project SDK package — needs a `global.json`
 entry per client repo anyway, and bakes this repo's folder layout into a published artifact that goes stale
-on the next reorganisation; importing from the clone always matches the checked‑out commit. See
+on the next reorganisation; importing from the clone always matches the checked‑out commit. *Rejected:*
+project references as the default for **every** client — i.e. treating ModularShop purely as a source
+dependency each client builds against, the way a git submodule or a monorepo checkout would. That would
+force every client developer to clone this repo, exposing the whole Platform source to people who only
+need its public surface, instead of installing a package; require every developer's checkout to sit at the
+same relative folder structure as everyone else's, instead of the client resolving a version from a feed;
+and put a continuous manual burden on each client developer to pull this repo's changes and keep their
+local configuration in sync, with no single point — a version number — marking which state a client is even
+built against. It also erases the dependency from the client's own git history: a client's commits would
+never record "now on ModularShop @ *x*", only that some path pointed at a second repo, whatever state that
+happened to be in at build time. And every client's CI pipeline would need to check out and coordinate two
+repositories instead of one, rather than a plain `dotnet restore` against a feed. See
 `packaging-and-distribution.md` §10.
 
 **Explicitly out of scope** (all legitimate in production, none needed to teach MM): CQRS buses, test
